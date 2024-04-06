@@ -3,7 +3,6 @@
 typedef enum {
   TOKEN_WORD,          // word without special characters
   TOKEN_ESCAPED_WORD,  // '<any chars except \'>'
-  TOKEN_ADDRESS,       // <ip>:<port>
   TOKEN_PIPE,          // |
   TOKEN_BG,            // &
   TOKEN_REDIRECT_OUT,  // >
@@ -18,13 +17,13 @@ typedef enum {
 
 typedef struct {
   TokenType type;
-  char *value;
+  int position;
+  int length;
 } Token;
 
 typedef struct {
-  char *input;
+  const char *input;
   int position;
 } Lexer;
 
-Lexer *init_lexer(char *input);
-Token *lexer_next_token(Lexer *lexer);
+Token lexer_next_token(Lexer *lexer);

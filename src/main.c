@@ -1,18 +1,30 @@
 #include "parser.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-int main() {
-  char *input = "ls -l | grep .c";
+char *strnokentype[] = {
+    "TOKEN_WORD",        "TOKEN_ESCAPED_WORD",  "TOKEN_PIPE",
+    "TOKEN_BG",          "TOKEN_REDIRECT_OUT",  "TOKEN_REDIRECT_IN",
+    "TOKEN_REDIRECT_AT", "TOKEN_REDIRECT_FROM", "TOKEN_SEMICOLON",
+    "TOKEN_NEWLINE",     "TOKEN_EOF",           "TOKEN_ERROR",
+};
 
-  Lexer *lexer = init_lexer(input);
+int main(void) {
+  char *input =
+      "ls -l | grep '*.txt' > output.txt & ; echo hello >@ 192.168.1.10:8080";
+
+  // input
+  printf("Input: %s\n", input);
+
+  Lexer lexer = {.input = input, .position = 0};
   while (1) {
-    Token *token = lexer_next_token(lexer);
-    if (token->type == TOKEN_EOF)
+    Token token = lexer_next_token(&lexer);
+    if (token.type == TOKEN_EOF)
       break;
-    printf("Token(%d, %s)\n", token->type, token->value);
+    printf("Token(%s, '%.*s')\n", strnokentype[token.type], token.length,
+           input + token.position);
   }
 
-  free(lexer);
   return 0;
 }
