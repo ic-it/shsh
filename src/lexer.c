@@ -1,4 +1,4 @@
-#include "parser.h"
+#include "lexer.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,6 +6,11 @@
 
 /// Peek next character from lexer
 char lexer_peek(Lexer *lexer) { return lexer->input[lexer->position]; }
+
+/// Lookahead next character from lexer
+char lexer_lookahead(Lexer *lexer, int n) {
+  return lexer->input[lexer->position + n];
+}
 
 /// Advance lexer position
 char lexer_advance(Lexer *lexer) {
@@ -24,16 +29,6 @@ int lexer_eat(Lexer *lexer, char c) {
   return 0;
 }
 
-/// Read characters until a specific condition is met
-int lexer_collect(Lexer *lexer, int (*condition)(int)) {
-  int length = 0;
-  while (condition(lexer_peek(lexer))) {
-    lexer_advance(lexer);
-    length++;
-  }
-  return length;
-}
-
 /// Collect escaped word
 int isescaped(int c) { return c != '\''; }
 
@@ -42,9 +37,6 @@ int isnonspecial(int c) {
   return !isspace(c) && c != ';' && c != '|' && c != '>' && c != '<' &&
          c != '*' && c != '\'' && c != '&' && c != '\0';
 }
-
-/// Collect Seems like a valid address
-int isaddress(int c) { return isdigit(c) || c == '.'; }
 
 /// Get next token from lexer
 Token lexer_next_token(Lexer *lexer) {
@@ -60,29 +52,48 @@ Token lexer_next_token(Lexer *lexer) {
   if (lexer_eat(lexer, '\0'))
     return (Token){.type = TOKEN_EOF, .position = lexer->position, .length = 0};
 
-  // Check for command word
-  if (isnonspecial(lexer_peek(lexer))) {
-    int len = lexer_collect(lexer, isnonspecial);
+  // Check for unescaped word (\<char> | <char>)+
+  // Parse \cword
+  if (lexer_peek(lexer) == '\\' || isnonspecial(lexer_peek(lexer))) {
+    int state = 0; // 0: normal, 1: escaped
+    while (isnonspecial(lexer_peek(lexer)) || state) {
+      if (lexer_peek(lexer) == '\\') {
+        state = !state;
+      } else {
+        state = 0;
+      }
+      lexer_advance(lexer);
+    }
+
     return (Token){
         .type = TOKEN_WORD,
         .position = current_position,
-        .length = len,
+        .length = lexer->position - current_position,
     };
   }
 
   // Check for escaped word
   if (lexer_eat(lexer, '\'')) {
-    int len = lexer_collect(lexer, isescaped);
+    int state = 0; // 0: normal, 1: escaped
+    while (isescaped(lexer_peek(lexer)) || state) {
+      if (lexer_peek(lexer) == '\\') {
+        state = !state;
+      } else {
+        state = 0;
+      }
+      lexer_advance(lexer);
+    }
+
     if (!lexer_eat(lexer, '\''))
       return (Token){
           .type = TOKEN_ERROR,
           .position = current_position,
-          .length = len,
+          .length = lexer->position - current_position,
       };
     return (Token){
         .type = TOKEN_ESCAPED_WORD,
         .position = current_position + 1,
-        .length = len,
+        .length = lexer->position - current_position - 2,
     };
   }
 
@@ -91,6 +102,9 @@ Token lexer_next_token(Lexer *lexer) {
   int length = 1;
 
   switch (lexer_advance(lexer)) {
+  case '*':
+    type = TOKEN_STAR;
+    break;
   case '|':
     type = TOKEN_PIPE;
     break;

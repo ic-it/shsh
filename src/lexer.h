@@ -5,6 +5,7 @@ typedef enum {
   TOKEN_ESCAPED_WORD,  // '<any chars except \'>'
   TOKEN_PIPE,          // |
   TOKEN_BG,            // &
+  TOKEN_STAR,          // *
   TOKEN_REDIRECT_OUT,  // >
   TOKEN_REDIRECT_IN,   // <
   TOKEN_REDIRECT_AT,   // >@
