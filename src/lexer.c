@@ -36,7 +36,7 @@ int isescaped(int c) { return c != '\''; }
 /// Collect unescaped word
 int isnonspecial(int c) {
   return !isspace(c) && c != ';' && c != '|' && c != '>' && c != '<' &&
-         c != '\'' && c != '&' && c != '\0';
+         c != '\'' && c != '&' && c != '\0' && c != '#';
 }
 
 /// Get next token from lexer
@@ -48,6 +48,14 @@ Token lex_next(Lexer *lexer) {
          (lexer_peek(lexer) == '\r')) {
     lexer_advance(lexer);
     current_position++;
+  }
+
+  // Skip comments
+  if (lexer_peek(lexer) == '#') {
+    while (lexer_peek(lexer) != '\n' && lexer_peek(lexer) != '\0') {
+      lexer_advance(lexer);
+      current_position++;
+    }
   }
 
   // Check for end of input

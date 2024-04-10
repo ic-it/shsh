@@ -6,16 +6,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-char *strtokentype[] = {
-    "TOKEN_WORD",      "TOKEN_ESCAPED_WORD", "TOKEN_PIPE",    "TOKEN_BG",
-    "TOKEN_FILE_OUT",  "TOKEN_FILE_IN",      "TOKEN_TCP_OUT", "TOKEN_TCP_IN",
-    "TOKEN_SEMICOLON", "TOKEN_NEWLINE",      "TOKEN_EOF",     "TOKEN_ERROR",
-};
-
 int main(void) {
-  char input[] =
-      "ls -l | grep -i 'hello *.txt' > output\\ *.txt &; echo hello <@"
-      "192.168.1.10:8080 > input.txt &";
+  // char input[] =
+  //     "ls -l | grep -i 'hello *.txt' > output\\ *.txt &; echo hello <@"
+  //     "192.168.1.10:8080 > input.txt &";
+  char input[] = "#!/bin/shsh\n"
+                 "rm -rf /usr/local/go \n"
+                 "# Download and extract go 1.22.2\n"
+                 "tar -C /usr/local -xzf go1.22.2.linux-amd64.tar.gz";
 
   // input
   printf("Input: %s\n", input);
