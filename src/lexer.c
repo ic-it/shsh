@@ -39,7 +39,7 @@ int isnonspecial(int c) {
 }
 
 /// Get next token from lexer
-Token lexer_next_token(Lexer *lexer) {
+Token lex_next(Lexer *lexer) {
   int current_position = lexer->position;
 
   // Skip whitespace
@@ -53,12 +53,22 @@ Token lexer_next_token(Lexer *lexer) {
     return (Token){.type = TOKEN_EOF, .position = lexer->position, .length = 0};
 
   // Check for unescaped word (\<char> | <char>)+
-  // Parse \cword
   if (lexer_peek(lexer) == '\\' || isnonspecial(lexer_peek(lexer))) {
     int state = 0; // 0: normal, 1: escaped
     while (isnonspecial(lexer_peek(lexer)) || state) {
+      if (lexer_peek(lexer) == '\0') {
+        if (state)
+          return (Token){.type = TOKEN_ERROR};
+        break;
+      }
       if (lexer_peek(lexer) == '\\') {
         state = !state;
+        // FIXME: SHITTY CODE! I'm too lazy to fix this
+        memmove((lexer->input + lexer->position),
+                (lexer->input + lexer->position + 1),
+                strlen(lexer->input + lexer->position + 1));
+        lexer->input[strlen(lexer->input) - 1] = '\0';
+        continue;
       } else {
         state = 0;
       }
@@ -76,8 +86,17 @@ Token lexer_next_token(Lexer *lexer) {
   if (lexer_eat(lexer, '\'')) {
     int state = 0; // 0: normal, 1: escaped
     while (isescaped(lexer_peek(lexer)) || state) {
+      if (lexer_peek(lexer) == '\0') {
+        return (Token){.type = TOKEN_ERROR};
+      }
       if (lexer_peek(lexer) == '\\') {
+        // FIXME: SHITTY CODE! I'm too lazy to fix this
         state = !state;
+        memmove((lexer->input + lexer->position),
+                (lexer->input + lexer->position + 1),
+                strlen(lexer->input + lexer->position + 1));
+        lexer->input[strlen(lexer->input) - 1] = '\0';
+        continue;
       } else {
         state = 0;
       }

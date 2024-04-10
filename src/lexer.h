@@ -16,15 +16,21 @@ typedef enum {
   TOKEN_ERROR          // error
 } TokenType;
 
+/// @brief Token structure
 typedef struct {
   TokenType type;
   int position;
   int length;
 } Token;
 
+/// @brief Program Lexer
+/// Initial position is 0
 typedef struct {
-  const char *input;
+  char *input;
   int position;
 } Lexer;
 
-Token lexer_next_token(Lexer *lexer);
+/// @brief Iterator over Tokens
+/// @param lexer
+/// @return Token
+Token lex_next(Lexer *lexer);

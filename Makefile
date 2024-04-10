@@ -4,7 +4,7 @@ OBJ_DIR=./obj
 BIN_DIR=./bin
 
 CC=clang
-CFLAGS=-Wall -Wextra -Werror -g -ggdb -I$(SRC_DIR) -O0 -std=c11 -pedantic
+CFLAGS=-Wall -Wextra -Werror -g -ggdb -I$(SRC_DIR) -O0 -std=c11 -pedantic -fsanitize=address -fno-omit-frame-pointer
 
 DBGR=gdb
 DBGR_ARGS=\

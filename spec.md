@@ -42,10 +42,18 @@
 /* Command body */
 <command_body> ::= 
     <command_word> <arguments>
-    | <command_word> <arguments> ">" <filename>
-    | <command_word> <arguments> "<" <filename>
-    | <command_word> <arguments> ">@" <dstaddr>
-    | <command_word> <arguments> "<@" <dstaddr>
+    | <command_word> <arguments> <file_io>
+    | <command_word> <arguments> <tcp_io>
+
+<file_io> ::=
+    E
+    | ">" <filename> ( "<" <filename> )?
+    | "<" <filename> ( ">" <filename> )?
+
+<tcp_io> ::=
+    E
+    | ">@" <dstaddr> ( "<@" <dstaddr> )?
+    | "<@" <dstaddr> ( ">@" <dstaddr> )?
 
 
 /* Arguments -- optional */
