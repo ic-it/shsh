@@ -1,26 +1,25 @@
 #pragma once
+#include "types.h"
 
 typedef enum {
-  TOKEN_WORD,          // word without special characters
-  TOKEN_ESCAPED_WORD,  // '<any chars except \'>'
-  TOKEN_PIPE,          // |
-  TOKEN_BG,            // &
-  TOKEN_STAR,          // *
-  TOKEN_REDIRECT_OUT,  // >
-  TOKEN_REDIRECT_IN,   // <
-  TOKEN_REDIRECT_AT,   // >@
-  TOKEN_REDIRECT_FROM, // <@
-  TOKEN_SEMICOLON,     // ;
-  TOKEN_NEWLINE,       // \n
-  TOKEN_EOF,           // end of file
-  TOKEN_ERROR          // error
+  TOKEN_WORD,         // word without special characters
+  TOKEN_ESCAPED_WORD, // '<any chars except \'>'
+  TOKEN_PIPE,         // |
+  TOKEN_BG,           // &
+  TOKEN_FILE_OUT,     // >
+  TOKEN_FILE_IN,      // <
+  TOKEN_TCP_OUT,      // >@
+  TOKEN_TCP_IN,       // <@
+  TOKEN_SEMICOLON,    // ;
+  TOKEN_NEWLINE,      // \n
+  TOKEN_EOF,          // end of file
+  TOKEN_ERROR         // error
 } TokenType;
 
 /// @brief Token structure
 typedef struct {
   TokenType type;
-  int position;
-  int length;
+  Slice value;
 } Token;
 
 /// @brief Program Lexer

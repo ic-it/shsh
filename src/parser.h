@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lexer.h"
+#include "types.h"
 
 typedef enum {
   CMD_FILE_IN = 1,  // Command reads from file
@@ -16,20 +17,29 @@ typedef enum {
   PARSE_OK = 0, // Parsing was successful
   PARSE_ERROR,  // Parsing failed
   PARSE_EOF,    // End of file
-} ParseResult;
+} ParseResultEnum;
 
 /// @brief Command structure
 typedef struct {
-  char *name;       // Command name
-  char **argv;      // Arguments
-  int argc;         // Number of arguments
-  char *in_file;    // Input file
-  char *out_file;   // Output file
-  char *in_tcp;     // Input TCP
-  char *out_tcp;    // Output TCP
+  Slice name;       // Command name
+  SliceVec args;    // Command arguments
+  Slice in_file;    // Input file
+  Slice out_file;   // Output file
+  Slice in_tcp;     // Input TCP
+  Slice out_tcp;    // Output TCP
   CommandType type; // Command type (file, tcp, bg)
-  ParseResult result;
 } Command;
+
+/// @brief clear_command
+/// Clear the command structure
+/// @param command Command
+void clear_command(Command command);
+
+/// ParseResult
+typedef struct {
+  Command command;
+  ParseResultEnum result;
+} ParseResult;
 
 /// @brief Command Parser
 /// Iterator over Commands
@@ -41,5 +51,5 @@ typedef struct {
 
 /// @brief Iterate over the commands in the input
 /// @param parser Parser
-/// @return Command
-Command parse_next(Parser *parser);
+/// @return ParseResult
+ParseResult parse_next(Parser *parser);

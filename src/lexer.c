@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "types.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,7 +36,7 @@ int isescaped(int c) { return c != '\''; }
 /// Collect unescaped word
 int isnonspecial(int c) {
   return !isspace(c) && c != ';' && c != '|' && c != '>' && c != '<' &&
-         c != '*' && c != '\'' && c != '&' && c != '\0';
+         c != '\'' && c != '&' && c != '\0';
 }
 
 /// Get next token from lexer
@@ -43,22 +44,28 @@ Token lex_next(Lexer *lexer) {
   int current_position = lexer->position;
 
   // Skip whitespace
-  while (isspace(lexer_peek(lexer))) {
+  while ((lexer_peek(lexer) == ' ') || (lexer_peek(lexer) == '\t') ||
+         (lexer_peek(lexer) == '\r')) {
     lexer_advance(lexer);
     current_position++;
   }
 
   // Check for end of input
   if (lexer_eat(lexer, '\0'))
-    return (Token){.type = TOKEN_EOF, .position = lexer->position, .length = 0};
+    return (Token){.type = TOKEN_EOF, .value = (Slice){0}};
 
   // Check for unescaped word (\<char> | <char>)+
   if (lexer_peek(lexer) == '\\' || isnonspecial(lexer_peek(lexer))) {
     int state = 0; // 0: normal, 1: escaped
-    while (isnonspecial(lexer_peek(lexer)) || state) {
+    do {
       if (lexer_peek(lexer) == '\0') {
         if (state)
-          return (Token){.type = TOKEN_ERROR};
+          return (Token){.type = TOKEN_ERROR,
+                         .value = (Slice){
+                             .data = lexer->input,
+                             .pos = current_position,
+                             .len = lexer->position - current_position,
+                         }};
         break;
       }
       if (lexer_peek(lexer) == '\\') {
@@ -73,13 +80,14 @@ Token lex_next(Lexer *lexer) {
         state = 0;
       }
       lexer_advance(lexer);
-    }
+    } while (state || isnonspecial(lexer_peek(lexer)));
 
-    return (Token){
-        .type = TOKEN_WORD,
-        .position = current_position,
-        .length = lexer->position - current_position,
-    };
+    return (Token){.type = TOKEN_WORD,
+                   .value = (Slice){
+                       .data = lexer->input,
+                       .pos = current_position,
+                       .len = lexer->position - current_position,
+                   }};
   }
 
   // Check for escaped word
@@ -104,16 +112,18 @@ Token lex_next(Lexer *lexer) {
     }
 
     if (!lexer_eat(lexer, '\''))
-      return (Token){
-          .type = TOKEN_ERROR,
-          .position = current_position,
-          .length = lexer->position - current_position,
-      };
-    return (Token){
-        .type = TOKEN_ESCAPED_WORD,
-        .position = current_position + 1,
-        .length = lexer->position - current_position - 2,
-    };
+      return (Token){.type = TOKEN_ERROR,
+                     .value = (Slice){
+                         .data = lexer->input,
+                         .pos = current_position,
+                         .len = lexer->position - current_position,
+                     }};
+    return (Token){.type = TOKEN_ESCAPED_WORD,
+                   .value = (Slice){
+                       .data = lexer->input,
+                       .pos = current_position + 1,
+                       .len = lexer->position - current_position - 2,
+                   }};
   }
 
   // Check for special characters
@@ -121,9 +131,6 @@ Token lex_next(Lexer *lexer) {
   int length = 1;
 
   switch (lexer_advance(lexer)) {
-  case '*':
-    type = TOKEN_STAR;
-    break;
   case '|':
     type = TOKEN_PIPE;
     break;
@@ -132,19 +139,19 @@ Token lex_next(Lexer *lexer) {
     break;
   case '>':
     if (lexer_eat(lexer, '@')) {
-      type = TOKEN_REDIRECT_AT;
+      type = TOKEN_TCP_OUT;
       length = 2;
       break;
     }
-    type = TOKEN_REDIRECT_OUT;
+    type = TOKEN_FILE_OUT;
     break;
   case '<':
     if (lexer_eat(lexer, '@')) {
-      type = TOKEN_REDIRECT_FROM;
+      type = TOKEN_TCP_IN;
       length = 2;
       break;
     }
-    type = TOKEN_REDIRECT_IN;
+    type = TOKEN_FILE_IN;
     break;
   case ';':
     type = TOKEN_SEMICOLON;
@@ -155,9 +162,10 @@ Token lex_next(Lexer *lexer) {
   default:
     break;
   }
-  return (Token){
-      .type = type,
-      .position = current_position,
-      .length = length,
-  };
+  return (Token){.type = type,
+                 .value = (Slice){
+                     .data = lexer->input,
+                     .pos = current_position,
+                     .len = length,
+                 }};
 }

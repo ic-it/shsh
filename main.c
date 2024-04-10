@@ -12,7 +12,7 @@ typedef enum {
   TOKEN_PIPE,
   TOKEN_REDIRECTION_OUTPUT,
   TOKEN_REDIRECTION_INPUT,
-  TOKEN_REDIRECT_AT,
+  TOKEN_TCP_OUT,
   TOKEN_DSTADDR_IP,
   TOKEN_DSTADDR_PORT,
   TOKEN_NEWLINE,
@@ -107,7 +107,7 @@ Token lex_next(Lexer *lexer) {
     if (lexer->input[lexer->position + 1] == '@') {
       lexer_advance(lexer); // Skip '@'
       lexer_advance(lexer); // Move to next character
-      return (Token){TOKEN_REDIRECT_AT, ">@"};
+      return (Token){TOKEN_TCP_OUT, ">@"};
     } else {
       lexer_advance(lexer);
       return (Token){TOKEN_REDIRECTION_OUTPUT, ">"};
@@ -116,7 +116,7 @@ Token lex_next(Lexer *lexer) {
     if (lexer->input[lexer->position + 1] == '@') {
       lexer_advance(lexer); // Skip '@'
       lexer_advance(lexer); // Move to next character
-      return (Token){TOKEN_REDIRECT_AT, "<@"};
+      return (Token){TOKEN_TCP_OUT, "<@"};
     } else {
       lexer_advance(lexer);
       return (Token){TOKEN_REDIRECTION_INPUT, "<"};
@@ -197,8 +197,8 @@ void program(Parser *parser) {
     filename(parser);
     if (parser->current_token.type == TOKEN_COMMAND_SEPARATOR)
       program(parser);
-  } else if (parser->current_token.type == TOKEN_REDIRECT_AT) {
-    parser_eat(parser, TOKEN_REDIRECT_AT);
+  } else if (parser->current_token.type == TOKEN_TCP_OUT) {
+    parser_eat(parser, TOKEN_TCP_OUT);
     dstaddr(parser);
     if (parser->current_token.type == TOKEN_COMMAND_SEPARATOR)
       program(parser);
@@ -213,7 +213,7 @@ void command(Parser *parser) {
       parser->current_token.type != TOKEN_PIPE &&
       parser->current_token.type != TOKEN_REDIRECTION_OUTPUT &&
       parser->current_token.type != TOKEN_REDIRECTION_INPUT &&
-      parser->current_token.type != TOKEN_REDIRECT_AT)
+      parser->current_token.type != TOKEN_TCP_OUT)
     arguments(parser);
 }
 
