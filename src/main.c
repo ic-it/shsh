@@ -13,7 +13,9 @@ int main(void) {
   char input[] = "#!/bin/shsh\n"
                  "rm -rf /usr/local/go \n"
                  "# Download and extract go 1.22.2\n"
-                 "tar -C /usr/local -xzf go1.22.2.linux-amd64.tar.gz";
+                 "tar -C /usr/local -xzf go1.22.2.linux-amd64.tar.gz"
+                 "\n"
+                 "echo test\\ 123 | tac";
 
   // input
   printf("Input: %s\n", input);
