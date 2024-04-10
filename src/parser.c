@@ -95,10 +95,10 @@ ParseResult parse_command(Parser *parser) {
   }
 
   if (parser_eat(parser, TOKEN_PIPE)) {
-    r.command.type |= CMD_PIPE;
+    r.command.flags |= CMD_PIPE;
   }
   if (parser_eat(parser, TOKEN_BG)) {
-    r.command.type |= CMD_BG;
+    r.command.flags |= CMD_BG;
   }
 
   return r;
@@ -148,7 +148,7 @@ int parse_io(Parser *parser, Command *command) {
   for (int i = 0; i < 4; i++) {
     if (parser_eat(parser, io[i].type)) {
       if (parser_match_any_word(parser)) {
-        command->type |= io[i].flag;
+        command->flags |= io[i].flag;
         slice_assign(io[i].value, parser_peek(parser).value);
         parser_advance(parser);
         i = 0;

@@ -10,7 +10,7 @@ typedef enum {
   CMD_TCP_OUT = 8,  // Command writes to TCP
   CMD_BG = 16,      // Command is background
   CMD_PIPE = 32,    // Command is piped
-} CommandType;
+} CommandFlags;
 
 /// Parsing Result
 typedef enum {
@@ -21,13 +21,13 @@ typedef enum {
 
 /// @brief Command structure
 typedef struct {
-  Slice name;       // Command name
-  SliceVec args;    // Command arguments
-  Slice in_file;    // Input file
-  Slice out_file;   // Output file
-  Slice in_tcp;     // Input TCP
-  Slice out_tcp;    // Output TCP
-  CommandType type; // Command type (file, tcp, bg)
+  Slice name;         // Command name
+  SliceVec args;      // Command arguments
+  Slice in_file;      // Input file
+  Slice out_file;     // Output file
+  Slice in_tcp;       // Input TCP
+  Slice out_tcp;      // Output TCP
+  CommandFlags flags; // Command flags
 } Command;
 
 /// @brief clear_command
