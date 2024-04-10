@@ -95,7 +95,15 @@ Token lex_next(Lexer *lexer) {
     int state = 0; // 0: normal, 1: escaped
     while (isescaped(lexer_peek(lexer)) || state) {
       if (lexer_peek(lexer) == '\0') {
-        return (Token){.type = TOKEN_ERROR};
+        return (Token){
+            .type = TOKEN_ERROR,
+            .value =
+                (Slice){
+                    .data = lexer->input,
+                    .pos = current_position,
+                    .len = lexer->position - current_position,
+                },
+        };
       }
       if (lexer_peek(lexer) == '\\') {
         // FIXME: SHITTY CODE! I'm too lazy to fix this

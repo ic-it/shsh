@@ -72,7 +72,13 @@ ParseResult parse_next(Parser *parser) {
         .result = PARSE_EOF,
     };
   }
-  return parse_command(parser);
+  ParseResult pr = parse_command(parser);
+
+  if (parser_match(parser, TOKEN_ERROR)) {
+    pr.result = PARSE_ERROR;
+  }
+
+  return pr;
 }
 
 ParseResult parse_command(Parser *parser) {
@@ -145,7 +151,9 @@ int parse_io(Parser *parser, Command *command) {
       {TOKEN_TCP_OUT, CMD_TCP_OUT, &command->out_tcp},
       {TOKEN_TCP_IN, CMD_TCP_IN, &command->in_tcp},
   };
-  for (int i = 0; i < 4; i++) {
+  // j -- is a counter of iterations
+  // i -- is an index of io array
+  for (int j = 0, i = 0; j < 8; j++, i = (i + 1) % 4) {
     if (parser_eat(parser, io[i].type)) {
       if (parser_match_any_word(parser)) {
         command->flags |= io[i].flag;

@@ -1,5 +1,6 @@
 #include "lexer.h"
 #include "parser.h"
+#include "semantic_analysis.h"
 #include "types.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,9 +14,8 @@ char *strtokentype[] = {
 
 int main(void) {
   char input[] =
-      "ls -l | grep 'hello *.txt' > output\\ *.txt & \n echo hello >@"
-      "192.168.1.10:8080 < input.txt &";
-  // char input[] = "l\\s '-l \\'a\\sd' < input.txt > output.txt &";
+      "ls -l | grep -i 'hello *.txt' > output\\ *.txt &; echo hello <@"
+      "192.168.1.10:8080 > input.txt &";
 
   // input
   printf("Input: %s\n", input);
@@ -47,24 +47,32 @@ int main(void) {
       return 1;
     }
 
+    SemanticResult sr = semantic_analyze(&pr.command);
+    if (sr.result == SEMANTIC_ERROR) {
+      printf("Semantic Error: %s\n", error_reasons[sr.reason]);
+      clear_command(pr.command);
+      return 1;
+    }
+
+    printf("Command:\n");
     m_print_slice("name", pr.command.name);
     m_print_slicev("args", pr.command.args);
-    if (pr.command.type & CMD_FILE_IN) {
+    if (pr.command.flags & CMD_FILE_IN) {
       m_print_slice("in_file", pr.command.in_file);
     }
-    if (pr.command.type & CMD_FILE_OUT) {
+    if (pr.command.flags & CMD_FILE_OUT) {
       m_print_slice("out_file", pr.command.out_file);
     }
-    if (pr.command.type & CMD_TCP_IN) {
+    if (pr.command.flags & CMD_TCP_IN) {
       m_print_slice("in_tcp", pr.command.in_tcp);
     }
-    if (pr.command.type & CMD_TCP_OUT) {
+    if (pr.command.flags & CMD_TCP_OUT) {
       m_print_slice("out_tcp", pr.command.out_tcp);
     }
-    if (pr.command.type & CMD_PIPE) {
+    if (pr.command.flags & CMD_PIPE) {
       printf("CMD_PIPE\n");
     }
-    if (pr.command.type & CMD_BG) {
+    if (pr.command.flags & CMD_BG) {
       printf("CMD_BG\n");
     }
 

@@ -32,50 +32,29 @@ char *slice_to_str(Slice s) {
 }
 
 Slice slice_from_str(char *s) {
-  Slice slice = {
-      .data = s,
-      .pos = 0,
-      .len = strlen(s),
-  };
-  return slice;
+  return (Slice){.data = s, .pos = 0, .len = strlen(s)};
 }
 
 Slice slice_substr(Slice s, int start, int end) {
-  if (start < 0) {
+  if (start < 0)
     start = 0;
-  }
-  if (end > s.len) {
+  if (end > s.len)
     end = s.len;
-  }
-  if (start >= end) {
-    return (Slice){
-        .data = NULL,
-        .pos = 0,
-        .len = 0,
-    };
-  }
-  return (Slice){
-      .data = s.data + start,
-      .pos = 0,
-      .len = end - start,
-  };
+  if (start >= end)
+    return (Slice){.data = NULL, .pos = 0, .len = 0};
+  return (Slice){.data = s.data + start, .pos = 0, .len = end - start};
 }
 
 SliceVec slice_vec_new(void) {
-  return (SliceVec){
-      .data = NULL,
-      .len = 0,
-      .cap = 0,
-  };
+  return (SliceVec){.data = NULL, .len = 0, .cap = 0};
 }
 
 void slice_vec_push(SliceVec *vec, Slice s) {
   if (vec->len == vec->cap) {
     int new_cap = vec->cap == 0 ? 1 : vec->cap * 2;
     Slice *new_data = realloc(vec->data, new_cap * sizeof(Slice));
-    if (new_data == NULL) {
+    if (new_data == NULL)
       return;
-    }
     vec->data = new_data;
     vec->cap = new_cap;
   }
