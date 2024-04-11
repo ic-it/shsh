@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/wait.h>
 
 void handle_sigint(int sig __attribute__((unused))) { printf("\n"); }
 
@@ -100,10 +99,6 @@ int main(void) {
         printf("PID: %d\n", er.pid);
       } else {
       }
-      // waitpid(er.pid, NULL, 0);
-
-      // printf("Exit Code: %d\n", er.exit_code);
-
       clear_command(pr.command);
     }
   }
