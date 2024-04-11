@@ -5,7 +5,6 @@
 
 void slice_assign(Slice *to, Slice from) {
   to->data = from.data;
-  to->pos = from.pos;
   to->len = from.len;
 }
 
@@ -26,14 +25,12 @@ char *slice_to_str(Slice s) {
   if (str == NULL) {
     return NULL;
   }
-  memmove(str, s.data + s.pos, s.len);
+  memmove(str, s.data, s.len);
   str[s.len] = '\0';
   return str;
 }
 
-Slice slice_from_str(char *s) {
-  return (Slice){.data = s, .pos = 0, .len = strlen(s)};
-}
+Slice slice_from_str(char *s) { return (Slice){.data = s, .len = strlen(s)}; }
 
 Slice slice_substr(Slice s, int start, int end) {
   if (start < 0)
@@ -41,8 +38,8 @@ Slice slice_substr(Slice s, int start, int end) {
   if (end > s.len)
     end = s.len;
   if (start >= end)
-    return (Slice){.data = NULL, .pos = 0, .len = 0};
-  return (Slice){.data = s.data + start, .pos = 0, .len = end - start};
+    return (Slice){.data = NULL, .len = 0};
+  return (Slice){.data = s.data + start, .len = end - start};
 }
 
 SliceVec slice_vec_new(void) {

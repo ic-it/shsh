@@ -70,8 +70,7 @@ Token lex_next(Lexer *lexer) {
         if (state)
           return (Token){.type = TOKEN_ERROR,
                          .value = (Slice){
-                             .data = lexer->input,
-                             .pos = current_position,
+                             .data = lexer->input + current_position,
                              .len = lexer->position - current_position,
                          }};
         break;
@@ -92,8 +91,7 @@ Token lex_next(Lexer *lexer) {
 
     return (Token){.type = TOKEN_WORD,
                    .value = (Slice){
-                       .data = lexer->input,
-                       .pos = current_position,
+                       .data = lexer->input + current_position,
                        .len = lexer->position - current_position,
                    }};
   }
@@ -107,8 +105,7 @@ Token lex_next(Lexer *lexer) {
             .type = TOKEN_ERROR,
             .value =
                 (Slice){
-                    .data = lexer->input,
-                    .pos = current_position,
+                    .data = lexer->input + current_position,
                     .len = lexer->position - current_position,
                 },
         };
@@ -121,25 +118,29 @@ Token lex_next(Lexer *lexer) {
                 strlen(lexer->input + lexer->position + 1));
         lexer->input[strlen(lexer->input) - 1] = '\0';
         continue;
-      } else {
-        state = 0;
       }
+      state = 0;
       lexer_advance(lexer);
     }
 
-    if (!lexer_eat(lexer, '\''))
-      return (Token){.type = TOKEN_ERROR,
-                     .value = (Slice){
-                         .data = lexer->input,
-                         .pos = current_position,
-                         .len = lexer->position - current_position,
-                     }};
-    return (Token){.type = TOKEN_ESCAPED_WORD,
-                   .value = (Slice){
-                       .data = lexer->input,
-                       .pos = current_position + 1,
-                       .len = lexer->position - current_position - 2,
-                   }};
+    if (!lexer_eat(lexer, '\'')) {
+      return (Token){
+          .type = TOKEN_ERROR,
+          .value =
+              (Slice){
+                  .data = lexer->input + current_position,
+                  .len = lexer->position - current_position,
+              },
+      };
+    }
+    return (Token){
+        .type = TOKEN_ESCAPED_WORD,
+        .value =
+            (Slice){
+                .data = lexer->input + current_position + 1,
+                .len = lexer->position - current_position - 2,
+            },
+    };
   }
 
   // Check for special characters
@@ -180,8 +181,7 @@ Token lex_next(Lexer *lexer) {
   }
   return (Token){.type = type,
                  .value = (Slice){
-                     .data = lexer->input,
-                     .pos = current_position,
+                     .data = lexer->input + current_position,
                      .len = length,
                  }};
 }

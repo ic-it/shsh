@@ -11,7 +11,6 @@
 /// @details A slice is a pointer to a string with a length and a position
 typedef struct {
   char *data;
-  int pos;
   int len;
 } Slice;
 
