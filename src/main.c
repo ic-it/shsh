@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 
 void handle_sigint(int sig __attribute__((unused))) { printf("\n"); }
 
@@ -81,7 +82,27 @@ int main(void) {
         continue;
       }
 
-      exec_command(&pr.command);
+      ExecResult er = exec_command(&pr.command);
+      switch (er.status) {
+      case EXEC_ERROR_FILE_OPEN:
+        printf("Error: Unable to open file\n");
+        break;
+      case EXEC_FORK_ERROR:
+        printf("Error: Unable to fork\n");
+        break;
+      case EXEC_WAIT_ERROR:
+        printf("Error: Unable to execute command\n");
+        break;
+      case EXEC_SUCCESS:
+        break;
+      }
+      if (pr.command.flags & CMD_BG) {
+        printf("PID: %d\n", er.pid);
+      } else {
+      }
+      // waitpid(er.pid, NULL, 0);
+
+      // printf("Exit Code: %d\n", er.exit_code);
 
       clear_command(pr.command);
     }

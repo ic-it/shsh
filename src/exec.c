@@ -7,6 +7,12 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#define clear_argv(argc, argv)                                                 \
+  {                                                                            \
+    for (int i = 0; i < argc; i++)                                             \
+      free(argv[i]);                                                           \
+  }
+
 int open_io(Command *command, int *fileIn, int *fileOut) {
   if (command->flags & CMD_FILE_IN) {
     char *file = slice_to_str(command->in_file);
@@ -61,10 +67,15 @@ ExecResult exec_command(Command *command) {
   pid_t pid = fork();
   if (pid == -1) {
     r.status = EXEC_FORK_ERROR;
+    clear_argv(argc, argv);
     return r;
   }
 
   if (pid == 0) {
+    if (command->flags & CMD_BG) {
+      setpgid(0, 0);
+    }
+
     if (command->flags & CMD_FILE_IN)
       dup2(fileIn, STDIN_FILENO);
     if (command->flags & CMD_FILE_OUT)
@@ -74,17 +85,16 @@ ExecResult exec_command(Command *command) {
   } else {
     int status;
     r.pid = pid;
-    if (waitpid(pid, &status, 0) == -1) {
+    int block = command->flags & CMD_BG ? WNOHANG : WUNTRACED;
+    if (waitpid(pid, &status, block) == -1) {
       r.status = EXEC_WAIT_ERROR;
+      clear_argv(argc, argv);
       return r;
     }
     r.exit_code = WEXITSTATUS(status);
   }
 
-  for (int i = 0; i < argc; i++) {
-    free(argv[i]);
-  }
-
+  clear_argv(argc, argv);
   close_io(command, fileIn, fileOut);
   return r;
 }
