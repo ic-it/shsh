@@ -20,7 +20,7 @@ void slice_assign(Slice *to, Slice from);
 /// @brief Compare two slices
 int slice_cmp(Slice a, Slice b);
 /// @brief Convert a slice to a string
-/// @details This function allocates memory for the string
+/// @note This function allocates memory for the string
 char *slice_to_str(Slice s);
 /// @brief Create a slice from a string
 Slice slice_from_str(char *s);
@@ -28,7 +28,6 @@ Slice slice_from_str(char *s);
 Slice slice_substr(Slice s, int start, int end);
 
 /// @brief Slice Vector
-/// @details A vector of slices
 typedef struct {
   Slice *data;
   int len;

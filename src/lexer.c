@@ -5,15 +5,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-/// Peek next character from lexer
 char lexer_peek(Lexer *lexer) { return lexer->input[lexer->position]; }
 
-/// Lookahead next character from lexer
 char lexer_lookahead(Lexer *lexer, int n) {
   return lexer->input[lexer->position + n];
 }
 
-/// Advance lexer position
 char lexer_advance(Lexer *lexer) {
   char c = lexer_peek(lexer);
   if (c != '\0')
@@ -21,7 +18,6 @@ char lexer_advance(Lexer *lexer) {
   return c;
 }
 
-/// Eat next character from lexer if it matches the given character
 int lexer_eat(Lexer *lexer, char c) {
   if (lexer_peek(lexer) == c) {
     lexer_advance(lexer);
@@ -30,16 +26,20 @@ int lexer_eat(Lexer *lexer, char c) {
   return 0;
 }
 
-/// Collect escaped word
 int isescaped(int c) { return c != '\''; }
 
-/// Collect unescaped word
 int isnonspecial(int c) {
   return !isspace(c) && c != ';' && c != '|' && c != '>' && c != '<' &&
          c != '\'' && c != '&' && c != '\0' && c != '#';
 }
 
-/// Get next token from lexer
+Lexer lex_new(char *input) { return (Lexer){.input = input, .position = 0}; }
+
+void lex_reset(Lexer *lexer, char *input) {
+  lexer->input = input;
+  lexer->position = 0;
+}
+
 Token lex_next(Lexer *lexer) {
   int current_position = lexer->position;
 

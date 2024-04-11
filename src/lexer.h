@@ -29,6 +29,16 @@ typedef struct {
   int position;
 } Lexer;
 
+/// @brief Create a new Lexer
+/// @param input
+/// @return Lexer
+Lexer lex_new(char *input);
+
+/// @brief Reset the Lexer
+/// @param lexer
+/// @param input
+void lex_reset(Lexer *lexer, char *input);
+
 /// @brief Iterator over Tokens
 /// @param lexer
 /// @return Token

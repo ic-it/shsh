@@ -58,11 +58,18 @@ int parser_eat_any_word(Parser *parser) {
 
 void clear_command(Command command) { slice_vec_free(&command.args); }
 
-ParseResult parse_next(Parser *parser) {
-  if (parser->lexer->position == 0) {
-    parser_advance(parser);
-  }
+Parser parse_new(Lexer *lexer) {
+  return (Parser){
+      .lexer = lexer,
+      .current_token = lex_next(lexer),
+  };
+}
 
+void parse_reset(Parser *parser) {
+  parser->current_token = lex_next(parser->lexer);
+}
+
+ParseResult parse_next(Parser *parser) {
   while (parser_eat(parser, TOKEN_NEWLINE) ||
          parser_eat(parser, TOKEN_SEMICOLON)) {
   }
@@ -76,6 +83,13 @@ ParseResult parse_next(Parser *parser) {
 
   if (parser_match(parser, TOKEN_ERROR)) {
     pr.result = PARSE_ERROR;
+  }
+
+  if (pr.result == PARSE_ERROR) {
+    while (!parser_eat(parser, TOKEN_NEWLINE) &&
+           !parser_eat(parser, TOKEN_EOF)) {
+      parser_advance(parser);
+    }
   }
 
   return pr;

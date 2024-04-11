@@ -46,8 +46,19 @@ typedef struct {
 typedef struct {
   Lexer *lexer;
   Token current_token;
-  char *input;
 } Parser;
+
+/// @brief Create a new Parser
+/// @param lexer Lexer
+/// @return Parser
+/// @note The lexer must be valid
+Parser parse_new(Lexer *lexer);
+
+/// @brief Reset the Parser
+/// @param parser Parser
+/// @note The lexer must be valid (This method does not reset the lexer. You
+/// must reset the lexer separately)
+void parse_reset(Parser *parser);
 
 /// @brief Iterate over the commands in the input
 /// @param parser Parser

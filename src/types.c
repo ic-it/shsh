@@ -22,7 +22,7 @@ int slice_cmp(Slice a, Slice b) {
 }
 
 char *slice_to_str(Slice s) {
-  char *str = malloc(s.len + 1);
+  char *str = malloc(s.len + 2); // +1 angel's share, +1 null terminator
   if (str == NULL) {
     return NULL;
   }
