@@ -7,12 +7,28 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 
 void handle_sigint(int sig __attribute__((unused))) { printf("\n"); }
+void handle_sigchld(int sig __attribute__((unused))) {
+  int status;
+  pid_t pid;
+  while ((pid = waitpid(0, &status, WNOHANG)) > 0) {
+    printf("PID %d exited with status %d\n", pid, WEXITSTATUS(status));
+    // if (!WIFEXITED(status) && !WIFSIGNALED(status)) {
+    //   continue;
+    // }
+    break;
+  }
+}
 
 int setup_shell(void) {
   if (signal(SIGINT, handle_sigint) == SIG_ERR) {
     printf("Error: Unable to catch SIGINT\n");
+    return -1;
+  }
+  if (signal(SIGCHLD, handle_sigchld) == SIG_ERR) {
+    printf("Error: Unable to catch SIGCHLD\n");
     return -1;
   }
   return 0;

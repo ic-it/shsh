@@ -114,11 +114,11 @@ ParseResult parse_command(Parser *parser) {
     return r;
   }
 
-  if (parser_eat(parser, TOKEN_PIPE)) {
-    r.command.flags |= CMD_PIPE;
-  }
   if (parser_eat(parser, TOKEN_BG)) {
     r.command.flags |= CMD_BG;
+  }
+  if (parser_eat(parser, TOKEN_PIPE)) {
+    r.command.flags |= CMD_PIPE;
   }
 
   return r;
