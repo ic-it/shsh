@@ -1,4 +1,5 @@
 #include "exec.h"
+#include "log.h"
 #include "parser.h"
 #include "types.h"
 #include <fcntl.h>
@@ -16,6 +17,7 @@
 
 int open_io(Command *command, int *fileIn, int *fileOut) {
   if (command->flags & CMD_FILE_IN) {
+    log_debug("Opening file %s for reading\n", slice_to_str(command->in_file));
     char *file = slice_to_str(command->in_file);
     *fileIn = open(file, O_RDONLY);
     free(file);
@@ -25,6 +27,7 @@ int open_io(Command *command, int *fileIn, int *fileOut) {
   }
 
   if (command->flags & CMD_FILE_OUT) {
+    log_debug("Opening file %s for writing\n", slice_to_str(command->out_file));
     char *file = slice_to_str(command->out_file);
     *fileOut = open(file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     free(file);
@@ -37,17 +40,18 @@ int open_io(Command *command, int *fileIn, int *fileOut) {
 }
 
 void close_io(Command *command, int fileIn, int fileOut) {
-  if (command->flags & CMD_FILE_IN && fileIn != STDIN_FILENO) {
+  if (command->flags & CMD_FILE_IN) {
     close(fileIn);
   }
 
-  if (command->flags & CMD_FILE_OUT && fileOut != STDOUT_FILENO) {
+  if (command->flags & CMD_FILE_OUT) {
     close(fileOut);
   }
 }
 
 ExecResult exec_command(Command *command) {
-  ExecResult r = {.status = EXEC_SUCCESS, .pid = 0, .exit_code = 0};
+  log_debug("Executing command %s\n", slice_to_str(command->name));
+  ExecResult r = {.status = EXEC_SUCCESS, .pid = 0, .exit_code = -1};
   int fileIn = STDIN_FILENO;
   int fileOut = STDOUT_FILENO;
 
@@ -74,13 +78,13 @@ ExecResult exec_command(Command *command) {
     return r;
   }
 
-  if (pid == 0) {
+  if (pid == 0) { // Child
+    // Set process group for background processes
     if (command->flags & CMD_BG) {
       setpgid(0, abs(main_pid));
     } else {
       setpgid(0, 0);
     }
-
     if (dup2(fileIn, STDIN_FILENO) == -1) {
       exit(1);
     }
@@ -109,7 +113,5 @@ ExecResult exec_command(Command *command) {
     close_io(command, fileIn, fileOut);
   }
 
-  // clear_argv(argc, argv);
-  // close_io(command, fileIn, fileOut);
   return r;
 }

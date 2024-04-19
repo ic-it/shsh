@@ -32,7 +32,7 @@ char *slice_to_str(Slice s) {
 
 Slice slice_from_str(char *s) { return (Slice){.data = s, .len = strlen(s)}; }
 
-Slice slice_substr(Slice s, int start, int end) {
+Slice slice_substr(Slice s, size_t start, size_t end) {
   if (start < 0)
     start = 0;
   if (end > s.len)

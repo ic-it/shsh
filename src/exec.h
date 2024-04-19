@@ -5,10 +5,14 @@
 
 typedef enum {
   EXEC_SUCCESS,
+  EXEC_IN_BACKGROUND,
   EXEC_FORK_ERROR,
   EXEC_ERROR_FILE_OPEN,
   EXEC_WAIT_ERROR,
 } ExecStatusEnum;
+
+// typedef struct {
+// } Executor;
 
 typedef struct {
   ExecStatusEnum status;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <sys/types.h>
+
 #define m_print_slice(prfx, s)                                                 \
   printf("%s: '%.*s'\n", prfx, s.len, s.data + s.pos)
 #define m_print_slicev(prfx, vec)                                              \
@@ -11,7 +13,7 @@
 /// @details A slice is a pointer to a string with a length and a position
 typedef struct {
   char *data;
-  int len;
+  size_t len;
 } Slice;
 
 /// @brief Slice assignment
@@ -24,7 +26,7 @@ char *slice_to_str(Slice s);
 /// @brief Create a slice from a string
 Slice slice_from_str(char *s);
 /// @brief Create a slice from a substring
-Slice slice_substr(Slice s, int start, int end);
+Slice slice_substr(Slice s, size_t start, size_t end);
 
 /// @brief Slice Vector
 typedef struct {

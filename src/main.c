@@ -1,5 +1,6 @@
 #include "exec.h"
 #include "lexer.h"
+#include "log.h"
 #include "parser.h"
 #include "semantic_analysis.h"
 #include "types.h"
@@ -10,7 +11,7 @@
 #include <sys/wait.h>
 
 void handle_sigchld(int sig) {
-  printf("Handling SIGCHLD %d\n", sig);
+  log_info("Caught SIGCHLD %d\n", sig);
   int status;
   pid_t pid;
   while ((pid = waitpid(0, &status, WNOHANG)) > 0) {
@@ -24,11 +25,11 @@ void handle_sigchld(int sig) {
 // Simple Console
 int main(void) {
   if (signal(SIGINT, SIG_IGN) == SIG_ERR) {
-    printf("Error: Unable to catch SIGINT\n");
+    log_error("Error: Unable to ignore SIGINT\n", NULL);
     return -1;
   }
   if (signal(SIGCHLD, handle_sigchld) == SIG_ERR) {
-    printf("Error: Unable to catch SIGCHLD\n");
+    log_error("Error: Unable to catch SIGCHLD\n", NULL);
     return -1;
   }
 
@@ -75,14 +76,14 @@ int main(void) {
       }
 
       if (pr.result == PARSE_ERROR) {
-        printf("Invalid Syntax\n");
+        log_error("Invalid Syntax\n", NULL);
         clear_command(pr.command);
         continue;
       }
 
       sr = semantic_analyze(&pr.command);
       if (sr.result == SEMANTIC_ERROR) {
-        printf("Semantic Error: %s\n", error_reasons[sr.reason]);
+        log_error("Semantic Error: %s\n", error_reasons[sr.reason]);
         clear_command(pr.command);
         continue;
       }
@@ -99,6 +100,8 @@ int main(void) {
         printf("Error: Unable to execute command\n");
         break;
       case EXEC_SUCCESS:
+        break;
+      case EXEC_IN_BACKGROUND:
         break;
       }
       if (pr.command.flags & CMD_BG) {
