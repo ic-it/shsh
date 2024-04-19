@@ -9,34 +9,26 @@
 #include <string.h>
 #include <sys/wait.h>
 
-void handle_sigint(int sig __attribute__((unused))) { printf("\n"); }
-void handle_sigchld(int sig __attribute__((unused))) {
+void handle_sigchld(int sig) {
+  printf("Handling SIGCHLD %d\n", sig);
   int status;
   pid_t pid;
   while ((pid = waitpid(0, &status, WNOHANG)) > 0) {
-    printf("PID %d exited with status %d\n", pid, WEXITSTATUS(status));
-    // if (!WIFEXITED(status) && !WIFSIGNALED(status)) {
-    //   continue;
-    // }
-    break;
+    if (!WIFEXITED(status) && !WIFSIGNALED(status)) {
+      continue;
+    }
+    printf("\nPID[%d] exited with status %d\n", pid, WEXITSTATUS(status));
   }
 }
 
-int setup_shell(void) {
-  if (signal(SIGINT, handle_sigint) == SIG_ERR) {
+// Simple Console
+int main(void) {
+  if (signal(SIGINT, SIG_IGN) == SIG_ERR) {
     printf("Error: Unable to catch SIGINT\n");
     return -1;
   }
   if (signal(SIGCHLD, handle_sigchld) == SIG_ERR) {
     printf("Error: Unable to catch SIGCHLD\n");
-    return -1;
-  }
-  return 0;
-}
-
-// Simple Console
-int main(void) {
-  if (setup_shell() == -1) {
     return -1;
   }
 
@@ -57,17 +49,15 @@ int main(void) {
         break;
       }
       if (c == 4) { // Ctrl + D
-        printf("\n");
-        printf("Exiting...\n");
+        printf("\nExiting... (Ctrl + D)\n");
         return 0;
       }
       if (c == 12) { // Ctrl + L
         system("clear");
         continue;
       }
-      if (c == EOF) {
-        printf("\n");
-        printf("Exiting...\n");
+      if (c == EOF && (c = getchar()) == EOF) { // Ctrl + D (EOF)
+        printf("\nExiting... (Ctrl + D)\n");
         return 0;
       }
       input[i++] = c;
@@ -112,7 +102,7 @@ int main(void) {
         break;
       }
       if (pr.command.flags & CMD_BG) {
-        printf("PID: %d\n", er.pid);
+        printf("Started process with PID %d\n", er.pid);
       } else {
       }
       clear_command(pr.command);

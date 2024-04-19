@@ -2,6 +2,7 @@
 #include "parser.h"
 #include "types.h"
 #include <fcntl.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -36,11 +37,11 @@ int open_io(Command *command, int *fileIn, int *fileOut) {
 }
 
 void close_io(Command *command, int fileIn, int fileOut) {
-  if (command->flags & CMD_FILE_IN) {
+  if (command->flags & CMD_FILE_IN && fileIn != STDIN_FILENO) {
     close(fileIn);
   }
 
-  if (command->flags & CMD_FILE_OUT) {
+  if (command->flags & CMD_FILE_OUT && fileOut != STDOUT_FILENO) {
     close(fileOut);
   }
 }
@@ -64,37 +65,51 @@ ExecResult exec_command(Command *command) {
   }
   argv[argc - 1] = NULL;
 
+  pid_t main_pid = getpid();
   pid_t pid = fork();
   if (pid == -1) {
     r.status = EXEC_FORK_ERROR;
     clear_argv(argc, argv);
+    close_io(command, fileIn, fileOut);
     return r;
   }
 
   if (pid == 0) {
     if (command->flags & CMD_BG) {
+      setpgid(0, abs(main_pid));
+    } else {
       setpgid(0, 0);
     }
 
-    if (command->flags & CMD_FILE_IN)
-      dup2(fileIn, STDIN_FILENO);
-    if (command->flags & CMD_FILE_OUT)
-      dup2(fileOut, STDOUT_FILENO);
+    if (dup2(fileIn, STDIN_FILENO) == -1) {
+      exit(1);
+    }
+    if (dup2(fileOut, STDOUT_FILENO) == -1) {
+      exit(1);
+    }
     execvp(cmd, argv);
+    execvp("echo", (char *[]){"echo", "Command not found", NULL});
     exit(1);
+  }
+
+  r.pid = pid;
+  if (command->flags & CMD_BG) {
+    r.exit_code = -1;
+    printf("Started process with PID %d\n", pid);
   } else {
     int status;
-    r.pid = pid;
-    int block = command->flags & CMD_BG ? WNOHANG : WUNTRACED;
-    if (waitpid(pid, &status, block) == -1) {
+    if (waitpid(pid, &status, WUNTRACED) == -1) {
       r.status = EXEC_WAIT_ERROR;
       clear_argv(argc, argv);
+      close_io(command, fileIn, fileOut);
       return r;
     }
     r.exit_code = WEXITSTATUS(status);
+    clear_argv(argc, argv);
+    close_io(command, fileIn, fileOut);
   }
 
-  clear_argv(argc, argv);
-  close_io(command, fileIn, fileOut);
+  // clear_argv(argc, argv);
+  // close_io(command, fileIn, fileOut);
   return r;
 }

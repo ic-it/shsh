@@ -167,7 +167,7 @@ int parse_io(Parser *parser, Command *command) {
   };
   // j -- is a counter of iterations
   // i -- is an index of io array
-  for (int j = 0, i = 0; j < 8; j++, i = (i + 1) % 4) {
+  for (size_t j = 0, i = 0; j < 8; j++, i = (i + 1) % 4) {
     if (parser_eat(parser, io[i].type)) {
       if (parser_match_any_word(parser)) {
         command->flags |= io[i].flag;

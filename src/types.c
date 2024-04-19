@@ -12,7 +12,7 @@ int slice_cmp(Slice a, Slice b) {
   if (a.len != b.len) {
     return a.len - b.len;
   }
-  for (int i = 0; i < a.len; i++) {
+  for (size_t i = 0; i < a.len; i++) {
     if (a.data[i] != b.data[i]) {
       return a.data[i] - b.data[i];
     }
