@@ -65,10 +65,6 @@ Parser parse_new(Lexer *lexer) {
   };
 }
 
-void parse_reset(Parser *parser) {
-  parser->current_token = lex_next(parser->lexer);
-}
-
 ParseResult parse_next(Parser *parser) {
   while (parser_eat(parser, TOKEN_NEWLINE) ||
          parser_eat(parser, TOKEN_SEMICOLON)) {

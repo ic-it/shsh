@@ -34,11 +34,6 @@ typedef struct {
 /// @return Lexer
 Lexer lex_new(char *input);
 
-/// @brief Reset the Lexer
-/// @param lexer
-/// @param input
-void lex_reset(Lexer *lexer, char *input);
-
 /// @brief Iterator over Tokens
 /// @param lexer
 /// @return Token

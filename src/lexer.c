@@ -35,11 +35,6 @@ int isnonspecial(int c) {
 
 Lexer lex_new(char *input) { return (Lexer){.input = input, .position = 0}; }
 
-void lex_reset(Lexer *lexer, char *input) {
-  lexer->input = input;
-  lexer->position = 0;
-}
-
 Token lex_next(Lexer *lexer) {
   int current_position = lexer->position;
 

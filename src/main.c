@@ -24,8 +24,6 @@ static void handle_sigchld(int sig __attribute__((unused))) {
              WEXITSTATUS(status));
   }
   signal(SIGCHLD, handle_sigchld); // What the fuck is this?
-  // read stdin non block
-  // getchar();
 }
 
 // Simple Console
