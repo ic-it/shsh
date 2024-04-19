@@ -72,6 +72,7 @@ int main(void) {
     lexer = lex_new(input);
     parser = parse_new(&lexer);
 
+    int pipe_in = -1;
     while (1) {
       pr = parse_next(&parser);
 
@@ -97,7 +98,8 @@ int main(void) {
         continue;
       }
 
-      ExecResult er = exec_command(&pr.command);
+      ExecResult er = exec_command(&pr.command, pipe_in);
+      pipe_in = er.pipe;
       switch (er.status) {
       case EXEC_ERROR_FILE_OPEN:
         log_error("Unable to open file\n", NULL);
@@ -105,12 +107,17 @@ int main(void) {
       case EXEC_FORK_ERROR:
         log_error("Unable to fork\n", NULL);
         break;
+      case EXEC_PIPE_ERROR:
+        log_error("Unable to create pipe\n", NULL);
+        break;
       case EXEC_WAIT_ERROR:
         log_error("Unable to wait for child process\n", NULL);
         break;
       case EXEC_SUCCESS:
         break;
       case EXEC_IN_BACKGROUND:
+        break;
+      case EXEC_PIPELINE:
         break;
       }
       if (pr.command.flags & CMD_BG) {
