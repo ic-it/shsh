@@ -4,33 +4,37 @@
 #include "parser.h"
 #include "semantic_analysis.h"
 #include "types.h"
+#include "utils.h"
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
 
-void handle_sigchld(int sig) {
-  log_info("Caught SIGCHLD %d\n", sig);
+static void handle_sigchld(int sig __attribute__((unused))) {
+  log_debug("Caught SIGCHLD\n", NULL);
   int status;
   pid_t pid;
+
   while ((pid = waitpid(0, &status, WNOHANG)) > 0) {
     if (!WIFEXITED(status) && !WIFSIGNALED(status)) {
       continue;
     }
-    printf("\nPID[%d] exited with status %d\n", pid, WEXITSTATUS(status));
+    log_info("Process with PID %d exited with status %d\n", pid,
+             WEXITSTATUS(status));
   }
+  signal(SIGCHLD, handle_sigchld); // What the fuck is this?
+  // read stdin non block
+  // getchar();
 }
 
 // Simple Console
 int main(void) {
-  if (signal(SIGINT, SIG_IGN) == SIG_ERR) {
-    log_error("Error: Unable to ignore SIGINT\n", NULL);
-    return -1;
-  }
   if (signal(SIGCHLD, handle_sigchld) == SIG_ERR) {
-    log_error("Error: Unable to catch SIGCHLD\n", NULL);
-    return -1;
+    panic("Error: Unable to catch SIGCHLD\n");
+  }
+  if (signal(SIGINT, SIG_IGN) == SIG_ERR) {
+    panic("Error: Unable to catch SIGINT\n");
   }
 
   char input[1024];
@@ -57,9 +61,11 @@ int main(void) {
         system("clear");
         continue;
       }
-      if (c == EOF && (c = getchar()) == EOF) { // Ctrl + D (EOF)
+      if (c == EOF && feof(stdin)) { // Ctrl + D (EOF)
         printf("\nExiting... (Ctrl + D)\n");
         return 0;
+      } else if (c == EOF) {
+        continue;
       }
       input[i++] = c;
     }
@@ -81,6 +87,11 @@ int main(void) {
         continue;
       }
 
+      if (pr.command.name.len == 0) {
+        clear_command(pr.command);
+        continue;
+      }
+
       sr = semantic_analyze(&pr.command);
       if (sr.result == SEMANTIC_ERROR) {
         log_error("Semantic Error: %s\n", error_reasons[sr.reason]);
@@ -91,13 +102,13 @@ int main(void) {
       ExecResult er = exec_command(&pr.command);
       switch (er.status) {
       case EXEC_ERROR_FILE_OPEN:
-        printf("Error: Unable to open file\n");
+        log_error("Unable to open file\n", NULL);
         break;
       case EXEC_FORK_ERROR:
-        printf("Error: Unable to fork\n");
+        log_error("Unable to fork\n", NULL);
         break;
       case EXEC_WAIT_ERROR:
-        printf("Error: Unable to execute command\n");
+        log_error("Unable to wait for child process\n", NULL);
         break;
       case EXEC_SUCCESS:
         break;
@@ -105,8 +116,7 @@ int main(void) {
         break;
       }
       if (pr.command.flags & CMD_BG) {
-        printf("Started process with PID %d\n", er.pid);
-      } else {
+        log_info("Started process with PID %d\n", er.pid);
       }
       clear_command(pr.command);
     }

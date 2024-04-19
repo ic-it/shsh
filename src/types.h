@@ -1,5 +1,6 @@
 #pragma once
 
+#include <alloca.h>
 #include <sys/types.h>
 
 #define m_print_slice(prfx, s)                                                 \
@@ -23,6 +24,17 @@ int slice_cmp(Slice a, Slice b);
 /// @brief Convert a slice to a string
 /// @note This function allocates memory for the string
 char *slice_to_str(Slice s);
+/// @brief Convert a slice to a string but allocate memory on the stack
+/// @note This function cant be used in a function call
+/// alloca
+#define slice_to_stack_str(s)                                                  \
+  ({                                                                           \
+    char *str = alloca(s.len + 1);                                             \
+    memcpy(str, s.data, s.len);                                                \
+    str[s.len] = '\0';                                                         \
+    str;                                                                       \
+  })
+
 /// @brief Create a slice from a string
 Slice slice_from_str(char *s);
 /// @brief Create a slice from a substring
@@ -31,8 +43,8 @@ Slice slice_substr(Slice s, size_t start, size_t end);
 /// @brief Slice Vector
 typedef struct {
   Slice *data;
-  int len;
-  int cap;
+  size_t len;
+  size_t cap;
 } SliceVec;
 
 /// @brief Create a new slice vector

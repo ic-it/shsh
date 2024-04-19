@@ -48,8 +48,9 @@
   {                                                                            \
     if (level >= LOG_LEVEL) {                                                  \
       fprintf(stderr,                                                          \
-              _LOG_CLR_##level _LOG_CLR_BOLD                                   \
-              "%s\t| " _LOG_CLR_REVERSE "%s:%d" _LOG_CLR_RESET "\t| " fmt,     \
+              _LOG_CLR_##level _LOG_CLR_BOLD _LOG_CLR_REVERSE                  \
+              "%s" _LOG_CLR_RESET "\t| " _LOG_CLR_##level _LOG_CLR_BOLD        \
+              "%s:%d" _LOG_CLR_RESET " | " fmt,                                \
               _LOG_NAME_##level, __FILE__, __LINE__, __VA_ARGS__);             \
     }                                                                          \
   }
