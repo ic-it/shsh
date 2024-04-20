@@ -33,17 +33,17 @@ int open_io(Command *command, int *fileIn, int *fileOut) {
   return 0;
 }
 
-void close_io(Command *command, int fileIn, int fileOut) {
-  if (command->flags & CMD_FILE_IN) {
+void close_io(int fileIn, int fileOut) {
+  if (fileIn != STDIN_FILENO) {
     close(fileIn);
   }
 
-  if (command->flags & CMD_FILE_OUT) {
+  if (fileOut != STDOUT_FILENO) {
     close(fileOut);
   }
 }
 
-ExecResult exec_command(Command *command, int pipe_in) {
+ExecResult exec_command(Command *command, const int pipe_in) {
   log_debug("Executing command %s\n", slice_to_stack_str(command->name));
   ExecResult r = {
       .status = EXEC_SUCCESS,
@@ -59,8 +59,8 @@ ExecResult exec_command(Command *command, int pipe_in) {
     fileIn = pipe_in;
   }
 
+  int pipefd[2];
   if (command->flags & CMD_PIPE) {
-    int pipefd[2];
     log_debug("Creating pipe\n", NULL);
     if (pipe(pipefd) == -1) {
       r.status = EXEC_PIPE_ERROR;
@@ -80,20 +80,13 @@ ExecResult exec_command(Command *command, int pipe_in) {
   pid_t pid = fork();
   if (pid == -1) {
     r.status = EXEC_FORK_ERROR;
-    close_io(command, fileIn, fileOut);
+    close_io(fileIn, fileOut);
     panic("fork failed");
   }
 
   if (pid == 0) {
-    int cpid = getpid();
-    log_debug("[MainPID: %d] [CPID: %d] [PID: %d]\n", main_pid, cpid, pid);
-
-    if (command->flags & CMD_BG || command->flags & CMD_PIPE) {
-      setpgid(0, abs(main_pid));
-    } else {
-      setpgid(0, 0);
-    }
-
+    setpgid(0, abs(main_pid)); // Set process group id to main_pid to avoid
+                               // signals being sent to the shell
     const int argc = command->args.len + /*cmd*/ 1 + /*NULL*/ 1;
     char *argv[argc];
     char *cmd = slice_to_stack_str(command->name);
@@ -103,48 +96,33 @@ ExecResult exec_command(Command *command, int pipe_in) {
     }
     argv[argc - 1] = NULL;
 
-    log_debug("[MainPID: %d] [CPID: %d] [PID: %d] fileIn = %d, fileOut = %d\n",
-              main_pid, cpid, pid, fileIn, fileOut);
     if (dup2(fileIn, STDIN_FILENO) == -1) {
       panic("dup2 failed");
     }
     if (dup2(fileOut, STDOUT_FILENO) == -1) {
       panic("dup2 failed");
     }
+    close_io(fileIn, fileOut);
     execvp(cmd, argv);
     log_warn("Command not found: %s\n", cmd);
     _exit(1);
   }
 
-  r.pid = pid;
-  if (command->flags & CMD_BG) {
-    log_info("[PID: %d] Started process with PID %d\n", main_pid, pid);
-    r.status = EXEC_IN_BACKGROUND;
-    // FIXME: Close file descriptors in parent process
-    return r;
-  }
+  close_io(fileIn, fileOut);
 
-  if (command->flags & CMD_PIPE) {
-    log_debug("[PID: %d] Pipe process with PID %d\n", main_pid, pid);
-    r.status = EXEC_PIPELINE;
-    // FIXME: Close file descriptors in parent process
+  r.pid = pid;
+  if (command->flags & CMD_BG || command->flags & CMD_PIPE) {
+    log_info("[PID: %d] Started process with PID %d\n", main_pid, pid);
+    r.status = command->flags & CMD_PIPE ? EXEC_PIPELINE : EXEC_IN_BACKGROUND;
     return r;
   }
 
   int status;
   do {
-    log_debug("[PID: %d] Waiting for child process with PID %d\n", main_pid,
-              pid);
     if (waitpid(pid, &status, WUNTRACED) == -1) {
-      // close_io(command, fileIn, fileOut);
       panic("waitpid failed");
-      // r.status = EXEC_WAIT_ERROR;
-      // return r;
     }
   } while (!WIFEXITED(status) && !WIFSIGNALED(status));
   r.exit_code = WEXITSTATUS(status);
-  // close_io(command, fileIn, fileOut);
-  log_debug("[PID: %d] Child process with PID %d exited with status %d\n",
-            main_pid, pid, r.exit_code);
   return r;
 }
