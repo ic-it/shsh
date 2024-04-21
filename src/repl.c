@@ -93,7 +93,8 @@ int shsh_repl(shsh_repl_ctx ctx) {
           break;
         }
         printf("\nExiting... (Ctrl + D)\n");
-        return 0;
+        is_eof = true;
+        break;
       } else if (c == EOF) {
         continue;
       }
@@ -150,7 +151,13 @@ int shsh_repl(shsh_repl_ctx ctx) {
       }
     }
   }
-
+  for (int i = 0; i < repl_jobs->pids_size; i++) {
+    if (repl_jobs->pids[i] != -1) {
+      log_info("Waiting for PID %d\n", repl_jobs->pids[i]);
+      waitpid(repl_jobs->pids[i], NULL, 0);
+    }
+  }
   jobs_free(repl_jobs);
+
   return 0;
 }

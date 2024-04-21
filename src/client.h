@@ -1,8 +1,11 @@
 #pragma once
 
+#include <stdio.h>
+
 typedef struct {
   char *host;
   int port;
+  FILE *in;
 } rshsh_client_ctx;
 
 /// @brief Remote ShSh Client

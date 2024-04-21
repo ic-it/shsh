@@ -141,9 +141,18 @@ int main(int argc, char *argv[]) {
   }
 
   if (args.is_client) {
-    return rshsh_client((rshsh_client_ctx){
+    FILE *file = NULL;
+    if (args.script_file != NULL) {
+      file = fopen(args.script_file, "r");
+    }
+    int status = rshsh_client((rshsh_client_ctx){
         .host = args.host,
         .port = args.port,
+        .in = file,
     });
+    if (file != NULL) {
+      fclose(file);
+    }
+    return status;
   }
 }

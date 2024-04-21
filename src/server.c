@@ -252,6 +252,14 @@ int rshsh_server(rshsh_server_ctx ctx) {
 
   log_info("Shutting down server\n", NULL);
   close(server_fd);
+  for (int i = 0; i < server_jobs->pids_size; i++) {
+    if (server_jobs->pids[i] == -1) {
+      continue;
+    }
+    int status;
+    log_info("Waiting for process %d to exit\n", server_jobs->pids[i]);
+    waitpid(server_jobs->pids[i], &status, 0);
+  }
   jobs_free(server_jobs);
   return 0;
 }
@@ -352,8 +360,17 @@ void *rshsh_handle_client(void *arg) {
     }
 
     ssize_t bytes_read = recv(client_fd, input, sizeof(input), 0);
+    if (bytes_read == -1) {
+      log_error("Error: Unable to read from socket\n", NULL);
+      break;
+    }
 
-    log_info("Received: %s\n", input);
+    if (bytes_read == 0) {
+      log_info("Client disconnected\n", NULL);
+      break;
+    }
+
+    log_info("Received %ld bytes\n", bytes_read);
 
     lexer = lex_new(input);
     parser = parse_new(&lexer);
