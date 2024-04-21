@@ -23,21 +23,38 @@ void *rshsh_handle_client(void *arg);
 Jobs *server_jobs;
 bool server_running = true;
 
-int *connections;
+typedef struct {
+  int client_fd;
+  int alive;
+} rshsh_server_conn;
+
+rshsh_server_conn *connections;
 int connections_size = 0;
 int connections_cap = 0;
 
 void conn_push(int conn) {
   if (connections_size == connections_cap) {
     connections_cap = connections_cap == 0 ? 1 : connections_cap * 2;
-    connections = realloc(connections, connections_cap * sizeof(int));
+    connections =
+        realloc(connections, connections_cap * sizeof(rshsh_server_conn));
   }
-  connections[connections_size++] = conn;
+  connections[connections_size].client_fd = conn;
+  connections[connections_size].alive = 1;
+  connections_size++;
+}
+
+rshsh_server_conn *conn_get(int conn) {
+  for (int i = 0; i < connections_size; i++) {
+    if (connections[i].client_fd == conn) {
+      return &connections[i];
+    }
+  }
+  return NULL;
 }
 
 void conn_remove(int conn) {
   for (int i = 0; i < connections_size; i++) {
-    if (connections[i] == conn) {
+    if (connections[i].client_fd == conn) {
       for (int j = i; j < connections_size - 1; j++) {
         connections[j] = connections[j + 1];
       }
@@ -75,6 +92,61 @@ static void server_handle_sigchld(int sig __attribute__((unused))) {
 void server_handle_sigint(int sig __attribute__((unused))) {
   log_info("Received SIGINT\n", NULL);
   server_running = false;
+}
+
+void *rshsh_server_control(void *arg __attribute__((unused))) {
+  char input[1024];
+  while (server_running) {
+    printf("rshsh-server> ");
+
+    if (fgets(input, sizeof(input), stdin) == NULL) {
+      log_info("Exiting\n", NULL);
+      server_running = false;
+      break;
+    }
+
+    if (strcmp(input, "\n") == 0) {
+      continue;
+    }
+
+    if (strcmp(input, "quit\n") == 0) {
+      log_info("Exiting\n", NULL);
+      server_running = false;
+    } else if (strcmp(input, "jobs\n") == 0) {
+      printf("Jobs:\n");
+      for (int i = 0; i < server_jobs->pids_size; i++) {
+        printf("  %d\n", server_jobs->pids[i]);
+      }
+    } else if (strcmp(input, "stat\n") == 0) {
+      log_info("Connections:\n", NULL);
+      for (int i = 0; i < connections_size; i++) {
+        printf("  %d: %s\n", connections[i].client_fd,
+               connections[i].alive ? "Alive" : "Dead");
+      }
+    } else if (strncmp(input, "abort", 5) == 0) {
+      int conn;
+      if (sscanf(input, "abort %d", &conn) == 1) {
+        rshsh_server_conn *c = conn_get(conn);
+        if (c == NULL) {
+          log_error("Error: Connection not found\n", NULL);
+        } else {
+          log_info("Aborting connection %d\n", conn);
+          c->alive = false;
+        }
+      } else {
+        log_error("Error: Invalid command\n", NULL);
+      }
+    } else if (strncmp(input, "help", 4) == 0) {
+      printf("Commands:\n");
+      printf("  quit - Exit the server\n");
+      printf("  jobs - List all jobs (processes)\n");
+      printf("  stat - List all connections\n");
+      printf("  abort <conn> - Abort a connection\n");
+    } else {
+      printf("Unknown command\n");
+    }
+  }
+  return NULL;
 }
 
 int rshsh_server(rshsh_server_ctx ctx) {
@@ -122,6 +194,12 @@ int rshsh_server(rshsh_server_ctx ctx) {
   log_info("Listening on %s:%d\n", inet_ntoa(sin.sin_addr),
            ntohs(sin.sin_port));
 
+  // Start the control thread
+  pthread_t control_thread;
+  if (pthread_create(&control_thread, NULL, rshsh_server_control, NULL) != 0) {
+    panic("Error: Unable to create control thread\n");
+  }
+
   while (server_running) {
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
@@ -168,8 +246,8 @@ int rshsh_server(rshsh_server_ctx ctx) {
   }
 
   for (int i = 0; i < connections_size; i++) {
-    log_info("Closing connection %d\n", connections[i]);
-    close(connections[i]);
+    log_info("Closing connection %d\n", connections[i].client_fd);
+    close(connections[i].client_fd);
   }
 
   log_info("Shutting down server\n", NULL);
@@ -207,6 +285,8 @@ void *rshsh_handle_client(void *arg) {
   ClientThreadArgs *cta = (ClientThreadArgs *)arg;
   int client_fd = cta->client_fd;
   int timeout = cta->timeout;
+
+  rshsh_server_conn *conn = conn_get(client_fd);
   free(cta);
 
   int in_fd, out_fd;
@@ -234,14 +314,14 @@ void *rshsh_handle_client(void *arg) {
                   "             mmm   # mm    mmm   # mm\n"
                   "            #   \"  #\"  #  #   \"  #\"  #\n"
                   "             \"\"\"m  #   #   \"\"\"m  #   #\n"
-                  "Welcome to  \"mmm\"  #   #  \"mmm\"  #   # by ic-it\n";
+                  "Welcome to  \"mmm\"  #   #  \"mmm\"  #   # by ic-it\n\n";
 
   send(client_fd, welcome, strlen(welcome), 0);
 
   const char *prompt_fmt = "[%s@%s:%s]-[%s]$ ";
 
   bool is_eof = false;
-  while (is_eof == false && server_running == true) {
+  while (is_eof == false && server_running == true && conn->alive == true) {
     char prompt[1024];
     server_fill_prompt(prompt, prompt_fmt);
 
@@ -298,7 +378,13 @@ void *rshsh_handle_client(void *arg) {
         }
         if (er.prehook_result == SERVER_PHR_HELP) {
           log_info("Client requested help\n", NULL);
-          send(client_fd, "Help is on the way\n", 18, 0);
+          const char *help = "Commands:\n"
+                             "  quit - Exit the shell\n"
+                             "  halt - Halt the server\n"
+                             "  help - Show this help\n"
+                             "  jobs - List all jobs\n"
+                             "  <cmd> - Run a command\n";
+          send(client_fd, help, strlen(help), 0);
           continue;
         }
       }
