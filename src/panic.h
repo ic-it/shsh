@@ -25,3 +25,17 @@
   }
 
 #define todo() panic("TODO")
+#define unreachable() panic("Unreachable code reached")
+#define not_implemented() panic("Not implemented")
+#define assert(cond)                                                           \
+  {                                                                            \
+    if (!(cond)) {                                                             \
+      panic("Assertion failed: " #cond);                                       \
+    }                                                                          \
+  }
+#define assertf(cond, fmt, ...)                                                \
+  {                                                                            \
+    if (!(cond)) {                                                             \
+      panicf("Assertion failed: " fmt, __VA_ARGS__);                           \
+    }                                                                          \
+  }

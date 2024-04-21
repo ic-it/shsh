@@ -12,6 +12,19 @@ typedef enum {
   CMD_PIPE = 32,    // Command is piped
 } CommandFlags;
 
+/// @brief Is File In Flag
+#define CMDISFIN(cmd) ((cmd).flags & CMD_FILE_IN)
+/// @brief Is File Out Flag
+#define CMDISFOUT(cmd) ((cmd).flags & CMD_FILE_OUT)
+/// @brief Is TCP In Flag
+#define CMDISTIN(cmd) ((cmd).flags & CMD_TCP_IN)
+/// @brief Is TCP Out Flag
+#define CMDISTOUT(cmd) ((cmd).flags & CMD_TCP_OUT)
+/// @brief Is Background Flag
+#define CMDISBG(cmd) ((cmd).flags & CMD_BG)
+/// @brief Is Pipe Flag
+#define CMDISPIPE(cmd) ((cmd).flags & CMD_PIPE)
+
 /// Parsing Result
 typedef enum {
   PARSE_OK = 0, // Parsing was successful
@@ -30,10 +43,10 @@ typedef struct {
   CommandFlags flags; // Command flags
 } Command;
 
-/// @brief clear_command
+/// @brief clear_command_args
 /// Clear the command structure
 /// @param command Command
-void clear_command(Command command);
+void clear_command_args(Command command);
 
 /// ParseResult
 typedef struct {

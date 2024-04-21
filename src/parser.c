@@ -56,7 +56,7 @@ int parser_eat_any_word(Parser *parser) {
          parser_eat(parser, TOKEN_ESCAPED_WORD);
 }
 
-void clear_command(Command command) { slice_vec_free(&command.args); }
+void clear_command_args(Command command) { slice_vec_free(&command.args); }
 
 Parser parse_new(Lexer *lexer) {
   return (Parser){

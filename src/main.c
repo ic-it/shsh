@@ -1,27 +1,33 @@
 #include "exec.h"
 #include "lexer.h"
 #include "log.h"
+#include "panic.h"
 #include "parser.h"
-#include "semantic_analysis.h"
 #include "types.h"
-#include "utils.h"
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
 
+Jobs *jobs;
+
 static void handle_sigchld(int sig __attribute__((unused))) {
-  log_debug("Caught SIGCHLD\n", NULL);
   int status;
   pid_t pid;
 
   while ((pid = waitpid(0, &status, WNOHANG)) > 0) {
+    if (pid == -1) {
+      log_error("Error: waitpid failed\n", NULL);
+      return;
+    }
     if (!WIFEXITED(status) && !WIFSIGNALED(status)) {
+      log_info("[H] Process with PID %d exited abnormally\n", pid);
       continue;
     }
-    log_info("Process with PID %d exited with status %d\n", pid,
+    log_info("\n[H] Process with PID %d exited with status %d\n", pid,
              WEXITSTATUS(status));
+    remove_pid(jobs, pid);
   }
   signal(SIGCHLD, handle_sigchld); // What the fuck is this?
 }
@@ -36,10 +42,11 @@ int main(void) {
   }
 
   char input[1024];
+  jobs = jobs_new();
+
   Lexer lexer;
   Parser parser;
-  ParseResult pr;
-  SemanticResult sr;
+  Executor executor = executor_new(NULL, jobs);
 
   while (1) {
     printf(">> ");
@@ -71,47 +78,26 @@ int main(void) {
 
     lexer = lex_new(input);
     parser = parse_new(&lexer);
+    executor.parser = &parser;
 
-    int pipe_in = -1;
     while (1) {
-      pr = parse_next(&parser);
-
-      if (pr.result == PARSE_EOF) {
+      ExecResult er = exec_next(&executor);
+      if (er.status == EXEC_PARSE_EOF) {
         break;
       }
 
-      if (pr.result == PARSE_ERROR) {
-        log_error("Invalid Syntax\n", NULL);
-        clear_command(pr.command);
-        continue;
-      }
-
-      if (pr.command.name.len == 0) {
-        clear_command(pr.command);
-        continue;
-      }
-
-      sr = semantic_analyze(&pr.command);
-      if (sr.result == SEMANTIC_ERROR) {
-        log_error("Semantic Error: %s\n", error_reasons[sr.reason]);
-        clear_command(pr.command);
-        continue;
-      }
-
-      ExecResult er = exec_command(&pr.command, pipe_in);
-      pipe_in = er.pipe;
       switch (er.status) {
       case EXEC_ERROR_FILE_OPEN:
         log_error("Unable to open file\n", NULL);
         break;
-      case EXEC_FORK_ERROR:
-        log_error("Unable to fork\n", NULL);
+      case EXEC_PARSE_ERROR:
+        log_error("Invalid Syntax\n", NULL);
         break;
-      case EXEC_PIPE_ERROR:
-        log_error("Unable to create pipe\n", NULL);
+      case EXEC_SEMANTIC_ERROR:
+        log_error("Semantic Error: %s\n",
+                  get_semantic_reason(er.semantic_reason));
         break;
-      case EXEC_WAIT_ERROR:
-        log_error("Unable to wait for child process\n", NULL);
+      case EXEC_PARSE_EOF:
         break;
       case EXEC_SUCCESS:
         break;
@@ -120,11 +106,9 @@ int main(void) {
       case EXEC_PIPELINE:
         break;
       }
-      if (pr.command.flags & CMD_BG) {
-        log_info("Started process with PID %d\n", er.pid);
-      }
-      clear_command(pr.command);
     }
   }
+
+  jobs_free(jobs);
   return 0;
 }
