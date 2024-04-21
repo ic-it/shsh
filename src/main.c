@@ -3,112 +3,130 @@
 #include "log.h"
 #include "panic.h"
 #include "parser.h"
+#include "repl.h"
 #include "types.h"
+#include <fcntl.h>
+#include <pthread.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/wait.h>
+#include <unistd.h>
 
-Jobs *jobs;
+#ifndef SHSH_VERSION
+#define SHSH_VERSION "~dev"
+#endif
 
-static void handle_sigchld(int sig __attribute__((unused))) {
-  int status;
-  pid_t pid;
+typedef struct {
+  char *script_file;
+  bool show_help;
+  bool show_about;
+  bool is_server;
+  bool is_client;
+  int port;
+  char *host;
+  bool verbose;
+  bool is_daemon;
+  int connection_timeout;
+  char *log_file;
+} shshargs;
 
-  while ((pid = waitpid(0, &status, WNOHANG)) > 0) {
-    if (pid == -1) {
-      log_error("Error: waitpid failed\n", NULL);
-      return;
+const char *help_message =
+    "Usage: shsh [options] [script]\n"
+    "Options:\n"
+    "  -h\t\tShow this help message\n"
+    "  -s\t\tStart a server\n"
+    "  -c\t\tStart a client\n"
+    "  -p PORT\tPort number\n"
+    "  -i HOST\tHost name\n"
+    "  -v\t\tVerbose mode\n"
+    "  -d\t\tDaemon mode\n"
+    "  -t TIMEOUT\tConnection timeout\n"
+    "  -l LOGFILE\tLog file\n"
+    "  -a\t\tShow about message\n"
+    "\n"
+    "If no script is provided, the program will start in REPL mode\n";
+
+const char *about_message = "shsh - a simple non-POSIX shell\n"
+                            "Version: " SHSH_VERSION "\n"
+                            "Author: Illia Chaban <ic-it@mail.com>\n";
+
+shshargs shsh_parse_args(int argc, char *argv[]) {
+  shshargs args = {
+      .script_file = NULL,
+      .show_help = false,
+      .is_server = false,
+      .is_client = false,
+      .port = 0,
+      .host = NULL,
+      .verbose = false,
+      .is_daemon = false,
+      .connection_timeout = 0,
+      .log_file = NULL,
+  };
+
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-h") == 0) {
+      args.show_help = true;
+    } else if (strcmp(argv[i], "-a") == 0) {
+      args.show_about = true;
+    } else if (strcmp(argv[i], "-s") == 0) {
+      args.is_server = true;
+    } else if (strcmp(argv[i], "-c") == 0) {
+      args.is_client = true;
+    } else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
+      args.port = atoi(argv[i + 1]);
+      i++; // skip next argument
+    } else if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) {
+      args.host = argv[i + 1];
+      i++; // skip next argument
+    } else if (strcmp(argv[i], "-v") == 0) {
+      args.verbose = true;
+    } else if (strcmp(argv[i], "-d") == 0) {
+      args.is_daemon = true;
+    } else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
+      args.connection_timeout = atoi(argv[i + 1]);
+      i++; // skip next argument
+    } else if (strcmp(argv[i], "-l") == 0 && i + 1 < argc) {
+      args.log_file = argv[i + 1];
+      i++; // skip next argument
+    } else {
+      int fd = open(argv[i], O_RDONLY);
+      if (fd == -1) {
+        log_error("Failed to open file %s\n", argv[i]);
+        continue;
+      }
+      args.script_file = argv[i];
+      close(fd);
     }
-    if (!WIFEXITED(status) && !WIFSIGNALED(status)) {
-      log_info("[H] Process with PID %d exited abnormally\n", pid);
-      continue;
-    }
-    log_info("\n[H] Process with PID %d exited with status %d\n", pid,
-             WEXITSTATUS(status));
-    remove_pid(jobs, pid);
   }
-  signal(SIGCHLD, handle_sigchld); // What the fuck is this?
+
+  return args;
 }
 
 // Simple Console
-int main(void) {
-  if (signal(SIGCHLD, handle_sigchld) == SIG_ERR) {
-    panic("Error: Unable to catch SIGCHLD\n");
+int main(int argc, char *argv[]) {
+  shshargs args = shsh_parse_args(argc, argv);
+  if (args.show_help) {
+    printf("%s", help_message);
+    return 0;
   }
-  if (signal(SIGINT, SIG_IGN) == SIG_ERR) {
-    panic("Error: Unable to catch SIGINT\n");
+
+  if (args.show_about) {
+    printf("%s", about_message);
+    return 0;
   }
 
-  char input[1024];
-  jobs = jobs_new();
-
-  Lexer lexer;
-  Parser parser;
-  Executor executor = executor_new(NULL, jobs);
-
-  while (1) {
-    printf(">> ");
-    int i = 0;
-    char c;
-    while (1) {
-      c = getchar();
-      if (c == '\n') { // Enter
-        input[i] = '\0';
-        break;
-      }
-      if (c == 4) { // Ctrl + D
-        printf("\nExiting... (Ctrl + D)\n");
-        return 0;
-      }
-      if (c == 12) { // Ctrl + L
-        system("clear");
-        continue;
-      }
-      if (c == EOF && feof(stdin)) { // Ctrl + D (EOF)
-        printf("\nExiting... (Ctrl + D)\n");
-        return 0;
-      } else if (c == EOF) {
-        continue;
-      }
-      input[i++] = c;
+  if (!args.is_server && !args.is_client) {
+    FILE *file = NULL;
+    if (args.script_file != NULL) {
+      file = fopen(args.script_file, "r");
     }
-    input[i] = '\0';
-
-    lexer = lex_new(input);
-    parser = parse_new(&lexer);
-    executor.parser = &parser;
-
-    while (1) {
-      ExecResult er = exec_next(&executor, stdin, stdout);
-      if (er.status == EXEC_PARSE_EOF) {
-        break;
-      }
-
-      switch (er.status) {
-      case EXEC_ERROR_FILE_OPEN:
-        log_error("Unable to open file\n", NULL);
-        break;
-      case EXEC_PARSE_ERROR:
-        log_error("Invalid Syntax\n", NULL);
-        break;
-      case EXEC_SEMANTIC_ERROR:
-        log_error("Semantic Error: %s\n",
-                  get_semantic_reason(er.semantic_reason));
-        break;
-      case EXEC_PARSE_EOF:
-        break;
-      case EXEC_SUCCESS:
-        break;
-      case EXEC_IN_BACKGROUND:
-        break;
-      case EXEC_PIPELINE:
-        break;
-      }
+    int status = shsh_repl((shsh_repl_ctx){.in = file});
+    if (file != NULL) {
+      fclose(file);
     }
+    return status;
   }
-
-  jobs_free(jobs);
-  return 0;
 }

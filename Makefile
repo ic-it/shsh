@@ -1,11 +1,25 @@
-SRC_DIR=./src
-OBJ_DIR=./obj
-BIN_DIR=./bin
+# Created by: @ic-it
+# Usage: make [all|clean|debug] [RELEASE=1]
+
+VERSION=0.0.1
+NAME=shsh
 
 CC=clang
-CDEFINES=-DLOG_LEVEL=0
 CINCLUDES=-I$(SRC_DIR)
-CFLAGS=-Wno-gnu -Wall -Wextra -Werror -g3 -ggdb -O0 -std=gnu11 -pedantic -fsanitize=address -fno-omit-frame-pointer $(CDEFINES) $(CINCLUDES) 
+CFLAGS=-Wno-gnu -Wall -Wextra -Werror -std=gnu11 -pedantic
+ifeq ($(RELEASE), 1)
+	CDEFINES=-DLOG_LEVEL=1 -DSHSH_VERSION=\"$(VERSION)\"
+	CFLAGS=-O3 $(CDEFINES) $(CINCLUDES)
+	SUBDIR=release
+else
+	CDEFINES=-DLOG_LEVEL=0 -DSHSH_VERSION=\"$(VERSION)-dev\"
+	CFLAGS=-g3 -ggdb -O0 -fsanitize=address -fno-omit-frame-pointer $(CDEFINES) $(CINCLUDES) 
+	SUBDIR=debug
+endif
+
+SRC_DIR=./src
+OBJ_DIR=./obj/$(SUBDIR)
+BIN_DIR=./bin/$(SUBDIR)
 
 DBGR=gdb
 DBGR_ARGS=\
@@ -19,7 +33,7 @@ DBGR_ARGS=\
 
 SRC=$(wildcard $(SRC_DIR)/*.c)
 OBJ=$(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
-BIN=$(BIN_DIR)/main
+BIN=$(BIN_DIR)/$(NAME)
 
 all: $(BIN)
 
