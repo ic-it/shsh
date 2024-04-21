@@ -47,7 +47,7 @@ int shsh_repl(shsh_repl_ctx ctx) {
     panic("Error: Unable to catch SIGINT\n");
   }
 
-  char input[1024];
+  char input[1024 * 3]; // 3KB
   repl_jobs = jobs_new();
 
   Lexer lexer;
@@ -98,7 +98,7 @@ int shsh_repl(shsh_repl_ctx ctx) {
     executor.parser = &parser;
 
     while (1) {
-      ExecResult er = exec_next(&executor, stdin, stdout);
+      ExecResult er = exec_next(&executor, STDIN_FILENO, STDOUT_FILENO);
       if (er.status == EXEC_PARSE_EOF) {
         break;
       }

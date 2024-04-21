@@ -66,7 +66,7 @@ void remove_pid(Jobs *jobs, pid_t pid) {
   assertf(pthread_mutex_unlock(&jobs->mutex) == 0, "mutex unlock failed", NULL);
 }
 
-ExecResult exec_next(Executor *executor, FILE *in, FILE *out) {
+ExecResult exec_next(Executor *executor, int in_fd, int out_fd) {
   ExecResult r = {
       .status = EXEC_SUCCESS,
       .exit_code = -1,
@@ -83,7 +83,7 @@ ExecResult exec_next(Executor *executor, FILE *in, FILE *out) {
     if (strcmp(slice_to_stack_str(pr.command.name), "jobs") == 0) {
       for (size_t i = 0; i < executor->jobs->pids_size; i++) {
         if (executor->jobs->pids[i] != -1) {
-          log_info_fd(out, "PID: %d\n", executor->jobs->pids[i]);
+          log_info_fd(out_fd, "PID: %d\n", executor->jobs->pids[i]);
         }
       }
       continue;
@@ -159,7 +159,6 @@ ExecResult exec_next(Executor *executor, FILE *in, FILE *out) {
         assertf(dup2(filein, STDIN_FILENO) != -1, "dup2 failed", NULL);
         close(filein);
       } else {
-        int in_fd = fileno(in);
         assertf(dup2(in_fd, STDIN_FILENO) != -1, "dup2 failed", NULL);
       }
 
@@ -172,12 +171,11 @@ ExecResult exec_next(Executor *executor, FILE *in, FILE *out) {
         assertf(dup2(fileout, STDOUT_FILENO) != -1, "dup2 failed", NULL);
         close(fileout);
       } else {
-        int out_fd = fileno(out);
         assertf(dup2(out_fd, STDOUT_FILENO) != -1, "dup2 failed", NULL);
       }
 
       execvp(cmd, argv);
-      log_warn_fd(out, "Command not found: %s\n", cmd);
+      log_warn_fd(out_fd, "Command not found: %s\n", cmd);
       _exit(1);
     }
 
@@ -198,12 +196,12 @@ ExecResult exec_next(Executor *executor, FILE *in, FILE *out) {
   }
 
   if (r.is_background) {
-    log_debug_fd(out, "Running in background\n", NULL);
+    log_debug_fd(out_fd, "Running in background\n", NULL);
     pid_t main_pid = getpid();
     for (int i = jobs_range[0]; i < jobs_range[1]; i++) {
       pid_t pid = executor->jobs->pids[i];
       if (pid == -1) {
-        log_debug_fd(out, "Skipping PID %d\n", pid);
+        log_debug_fd(out_fd, "Skipping PID %d\n", pid);
         continue;
       }
 
@@ -216,39 +214,39 @@ ExecResult exec_next(Executor *executor, FILE *in, FILE *out) {
       }
 
       if (!is_process_running) {
-        log_debug_fd(out, "Removing PID %d\n", pid);
+        log_debug_fd(out_fd, "Removing PID %d\n", pid);
         remove_pid(executor->jobs, pid);
         continue;
       } else {
-        log_debug_fd(out, "Setting PGID for PID %d\n", pid);
+        log_debug_fd(out_fd, "Setting PGID for PID %d\n", pid);
         setpgid(pid, abs(main_pid));
       }
     }
     return r;
   }
 
-  log_debug_fd(out, "Waiting for jobs from %d to %d\n", jobs_range[0],
+  log_debug_fd(out_fd, "Waiting for jobs from %d to %d\n", jobs_range[0],
                jobs_range[1]);
   for (int i = jobs_range[0]; i < jobs_range[1]; i++) {
     int status;
     pid_t pid = executor->jobs->pids[i];
     if (pid == -1) {
-      log_debug_fd(out, "Skipping PID %d\n", pid);
+      log_debug_fd(out_fd, "Skipping PID %d\n", pid);
       continue;
     }
     do {
-      log_debug_fd(out, "Waiting for PID %d\n", pid);
+      log_debug_fd(out_fd, "Waiting for PID %d\n", pid);
       pid_t wpid = waitpid(pid, &status, WUNTRACED);
       if (WIFSTOPPED(status)) {
-        log_debug_fd(out, "PID %d stopped\n", pid);
+        log_debug_fd(out_fd, "PID %d stopped\n", pid);
         break;
       }
       if (WIFSIGNALED(status)) {
-        log_debug_fd(out, "PID %d signaled\n", pid);
+        log_debug_fd(out_fd, "PID %d signaled\n", pid);
         break;
       }
       if (WIFEXITED(status)) {
-        log_debug_fd(out, "PID %d exited\n", pid);
+        log_debug_fd(out_fd, "PID %d exited\n", pid);
         break;
       }
       if (wpid == -1) {

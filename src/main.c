@@ -4,6 +4,7 @@
 #include "panic.h"
 #include "parser.h"
 #include "repl.h"
+#include "server.h"
 #include "types.h"
 #include <fcntl.h>
 #include <pthread.h>
@@ -128,5 +129,12 @@ int main(int argc, char *argv[]) {
       fclose(file);
     }
     return status;
+  }
+
+  if (args.is_server) {
+    return rshsh_server((rshsh_server_ctx){
+        .host = args.host,
+        .port = args.port,
+    });
   }
 }

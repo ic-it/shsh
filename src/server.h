@@ -7,4 +7,5 @@ typedef struct {
 
 /// @brief Remote ShSh Server
 /// @param ctx -- server context
-void rshsh_server(rshsh_server_ctx ctx);
+/// @return int -- status code
+int rshsh_server(rshsh_server_ctx ctx);

@@ -64,4 +64,4 @@ typedef struct {
 Executor executor_new(Parser *parser, Jobs *jobs);
 
 /// @brief Execute the next command or pipeline
-ExecResult exec_next(Executor *executor, FILE *in, FILE *out);
+ExecResult exec_next(Executor *executor, int in_fd, int out_fd);
