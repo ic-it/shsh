@@ -5,7 +5,7 @@ BIN_DIR=./bin
 CC=clang
 CDEFINES=-DLOG_LEVEL=0
 CINCLUDES=-I$(SRC_DIR)
-CFLAGS=-Wno-gnu -Wall -Wextra -Werror -g3 -ggdb -O0 -std=c11 -pedantic -fsanitize=address -fno-omit-frame-pointer $(CDEFINES) $(CINCLUDES) 
+CFLAGS=-Wno-gnu -Wall -Wextra -Werror -g3 -ggdb -O0 -std=gnu11 -pedantic -fsanitize=address -fno-omit-frame-pointer $(CDEFINES) $(CINCLUDES) 
 
 DBGR=gdb
 DBGR_ARGS=\

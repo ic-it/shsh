@@ -5,7 +5,9 @@
 #include "types.h"
 #include <pthread.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 typedef enum {
   EXEC_SUCCESS,
@@ -62,4 +64,4 @@ typedef struct {
 Executor executor_new(Parser *parser, Jobs *jobs);
 
 /// @brief Execute the next command or pipeline
-ExecResult exec_next(Executor *executor);
+ExecResult exec_next(Executor *executor, FILE *in, FILE *out);

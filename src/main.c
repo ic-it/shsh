@@ -81,7 +81,7 @@ int main(void) {
     executor.parser = &parser;
 
     while (1) {
-      ExecResult er = exec_next(&executor);
+      ExecResult er = exec_next(&executor, stdin, stdout);
       if (er.status == EXEC_PARSE_EOF) {
         break;
       }

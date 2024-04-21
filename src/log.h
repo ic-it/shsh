@@ -44,10 +44,10 @@
 #endif
 
 // Log function
-#define log(level, fmt, ...)                                                   \
+#define log(file, level, fmt, ...)                                             \
   {                                                                            \
     if (level >= LOG_LEVEL) {                                                  \
-      fprintf(stderr,                                                          \
+      fprintf(file,                                                            \
               _LOG_CLR_##level _LOG_CLR_BOLD _LOG_CLR_REVERSE                  \
               "%s" _LOG_CLR_RESET "\t| " _LOG_CLR_##level _LOG_CLR_BOLD        \
               "%s:%d" _LOG_CLR_RESET " | " fmt,                                \
@@ -55,8 +55,16 @@
     }                                                                          \
   }
 
+// Log into specified fd
+#define log_debug_fd(file, fmt, ...)                                           \
+  log(file, LOG_LEVEL_DEBUG, fmt, __VA_ARGS__)
+#define log_info_fd(file, fmt, ...) log(file, LOG_LEVEL_INFO, fmt, __VA_ARGS__)
+#define log_warn_fd(file, fmt, ...) log(file, LOG_LEVEL_WARN, fmt, __VA_ARGS__)
+#define log_error_fd(file, fmt, ...)                                           \
+  log(file, LOG_LEVEL_ERROR, fmt, __VA_ARGS__)
+
 // Log functions
-#define log_debug(fmt, ...) log(LOG_LEVEL_DEBUG, fmt, __VA_ARGS__)
-#define log_info(fmt, ...) log(LOG_LEVEL_INFO, fmt, __VA_ARGS__)
-#define log_warn(fmt, ...) log(LOG_LEVEL_WARN, fmt, __VA_ARGS__)
-#define log_error(fmt, ...) log(LOG_LEVEL_ERROR, fmt, __VA_ARGS__)
+#define log_debug(fmt, ...) log_debug_fd(stdout, fmt, __VA_ARGS__)
+#define log_info(fmt, ...) log_info_fd(stdout, fmt, __VA_ARGS__)
+#define log_warn(fmt, ...) log_warn_fd(stdout, fmt, __VA_ARGS__)
+#define log_error(fmt, ...) log_error_fd(stderr, fmt, __VA_ARGS__)
