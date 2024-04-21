@@ -66,7 +66,8 @@ void remove_pid(Jobs *jobs, pid_t pid) {
   assertf(pthread_mutex_unlock(&jobs->mutex) == 0, "mutex unlock failed", NULL);
 }
 
-ExecResult exec_next(Executor *executor, int in_fd, int out_fd) {
+ExecResult exec_next(Executor *executor, int in_fd, int out_fd,
+                     int (*pre_hook)(Command)) {
   ExecResult r = {
       .status = EXEC_SUCCESS,
       .exit_code = -1,
@@ -79,6 +80,15 @@ ExecResult exec_next(Executor *executor, int in_fd, int out_fd) {
 
   while (true) { // Loop Until Command or Pipeline
     ParseResult pr = parse_next(executor->parser);
+    if (pre_hook != NULL) {
+      int phr;
+      if ((phr = pre_hook(pr.command)) != 0) {
+        clear_command_args(pr.command);
+        r.prehook_result = phr;
+        r.status = EXEC_PREHOOK_BREAK;
+        break; // Break Loop
+      }
+    }
 
     if (strcmp(slice_to_stack_str(pr.command.name), "jobs") == 0) {
       for (size_t i = 0; i < executor->jobs->pids_size; i++) {
@@ -86,6 +96,25 @@ ExecResult exec_next(Executor *executor, int in_fd, int out_fd) {
           log_info_fd(out_fd, "PID: %d\n", executor->jobs->pids[i]);
         }
       }
+      clear_command_args(pr.command);
+      continue;
+    }
+
+    if (strcmp(slice_to_stack_str(pr.command.name), "cd") == 0) {
+      if (pr.command.args.len == 0) {
+        log_error_fd(out_fd, "cd: missing argument\n", NULL);
+        r.status = EXEC_ERROR_FILE_OPEN;
+        clear_command_args(pr.command);
+        return r;
+      }
+      if (chdir(slice_to_stack_str(pr.command.args.data[0])) == -1) {
+        log_error_fd(out_fd, "cd: %s: No such file or directory\n",
+                     slice_to_stack_str(pr.command.args.data[0]));
+        r.status = EXEC_ERROR_FILE_OPEN;
+        clear_command_args(pr.command);
+        return r;
+      }
+      clear_command_args(pr.command);
       continue;
     }
 
@@ -174,6 +203,7 @@ ExecResult exec_next(Executor *executor, int in_fd, int out_fd) {
         assertf(dup2(out_fd, STDOUT_FILENO) != -1, "dup2 failed", NULL);
       }
 
+      log_debug_fd(out_fd, "Executing command: %s\n", cmd);
       execvp(cmd, argv);
       log_warn_fd(out_fd, "Command not found: %s\n", cmd);
       _exit(1);

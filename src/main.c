@@ -1,3 +1,4 @@
+#include "client.h"
 #include "exec.h"
 #include "lexer.h"
 #include "log.h"
@@ -133,6 +134,14 @@ int main(int argc, char *argv[]) {
 
   if (args.is_server) {
     return rshsh_server((rshsh_server_ctx){
+        .host = args.host,
+        .port = args.port,
+        .timeout = args.connection_timeout,
+    });
+  }
+
+  if (args.is_client) {
+    return rshsh_client((rshsh_client_ctx){
         .host = args.host,
         .port = args.port,
     });

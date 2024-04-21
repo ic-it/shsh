@@ -33,6 +33,19 @@ static void repl_handle_sigchld(int sig __attribute__((unused))) {
   signal(SIGCHLD, repl_handle_sigchld); // WTF? Why do we need this?
 }
 
+typedef enum {
+  REPL_PHR_EXIT = 1,
+} REPLPrehookResult;
+
+int repl_prehook(Command cmd) {
+  char *cmd_name = slice_to_stack_str(cmd.name);
+  if (strcmp(cmd_name, "exit") == 0) {
+    log_debug("Exiting REPL\n", NULL);
+    return REPL_PHR_EXIT;
+  }
+  return 0;
+}
+
 int shsh_repl(shsh_repl_ctx ctx) {
   log_debug("Running REPL\n", NULL);
   FILE *in = stdin;
@@ -54,7 +67,8 @@ int shsh_repl(shsh_repl_ctx ctx) {
   Parser parser;
   Executor executor = executor_new(NULL, repl_jobs);
 
-  while (1) {
+  bool is_eof = false;
+  while (!is_eof) {
     printf(">> ");
     int i = 0;
     char c;
@@ -98,9 +112,18 @@ int shsh_repl(shsh_repl_ctx ctx) {
     executor.parser = &parser;
 
     while (1) {
-      ExecResult er = exec_next(&executor, STDIN_FILENO, STDOUT_FILENO);
+      ExecResult er =
+          exec_next(&executor, STDIN_FILENO, STDOUT_FILENO, repl_prehook);
       if (er.status == EXEC_PARSE_EOF) {
         break;
+      }
+
+      if (er.status == EXEC_PREHOOK_BREAK) {
+        if (er.prehook_result == REPL_PHR_EXIT) {
+          is_eof = true;
+          break;
+        }
+        panic("Unknown prehook result\n");
       }
 
       switch (er.status) {
@@ -121,6 +144,8 @@ int shsh_repl(shsh_repl_ctx ctx) {
       case EXEC_IN_BACKGROUND:
         break;
       case EXEC_PIPELINE:
+        break;
+      case EXEC_PREHOOK_BREAK:
         break;
       }
     }

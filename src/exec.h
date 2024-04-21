@@ -11,6 +11,7 @@
 
 typedef enum {
   EXEC_SUCCESS,
+  EXEC_PREHOOK_BREAK,
   EXEC_PARSE_ERROR,
   EXEC_SEMANTIC_ERROR,
   EXEC_PARSE_EOF,
@@ -25,6 +26,7 @@ typedef struct {
   int exit_code;
   bool is_background;
   bool is_pipeline;
+  int prehook_result;
 } ExecResult;
 
 typedef struct {
@@ -64,4 +66,10 @@ typedef struct {
 Executor executor_new(Parser *parser, Jobs *jobs);
 
 /// @brief Execute the next command or pipeline
-ExecResult exec_next(Executor *executor, int in_fd, int out_fd);
+/// @param executor Executor struct
+/// @param in_fd Input file descriptor
+/// @param out_fd Output file descriptor
+/// @param pre_hook Pre-hook function to run before executing the command. If
+/// the pre-hook returns a non-zero value, the command will not be executed.
+ExecResult exec_next(Executor *executor, int in_fd, int out_fd,
+                     int (*pre_hook)(Command));

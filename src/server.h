@@ -3,6 +3,7 @@
 typedef struct {
   char *host;
   int port;
+  int timeout;
 } rshsh_server_ctx;
 
 /// @brief Remote ShSh Server

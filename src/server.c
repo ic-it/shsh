@@ -23,6 +23,35 @@ void *rshsh_handle_client(void *arg);
 Jobs *server_jobs;
 bool server_running = true;
 
+int *connections;
+int connections_size = 0;
+int connections_cap = 0;
+
+void conn_push(int conn) {
+  if (connections_size == connections_cap) {
+    connections_cap = connections_cap == 0 ? 1 : connections_cap * 2;
+    connections = realloc(connections, connections_cap * sizeof(int));
+  }
+  connections[connections_size++] = conn;
+}
+
+void conn_remove(int conn) {
+  for (int i = 0; i < connections_size; i++) {
+    if (connections[i] == conn) {
+      for (int j = i; j < connections_size - 1; j++) {
+        connections[j] = connections[j + 1];
+      }
+      connections_size--;
+      break;
+    }
+  }
+}
+
+typedef struct {
+  int client_fd;
+  int timeout;
+} ClientThreadArgs;
+
 static void server_handle_sigchld(int sig __attribute__((unused))) {
   int status;
   pid_t pid;
@@ -120,14 +149,27 @@ int rshsh_server(rshsh_server_ctx ctx) {
       continue;
     }
 
+    conn_push(client_fd);
+
     log_info("Accepted connection from %s:%d\n",
              inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 
     pthread_t thread;
-    if (pthread_create(&thread, NULL, rshsh_handle_client, &client_fd) != 0) {
-      log_error("Error: Unable to create thread\n", NULL);
+    ClientThreadArgs *cta = malloc(sizeof(ClientThreadArgs));
+    cta->client_fd = client_fd;
+    cta->timeout = ctx.timeout;
+    if (pthread_create(&thread, NULL, rshsh_handle_client, cta) != 0) {
       close(client_fd);
+      free(cta);
+      conn_remove(client_fd);
+
+      panic("Error: Unable to create thread\n");
     }
+  }
+
+  for (int i = 0; i < connections_size; i++) {
+    log_info("Closing connection %d\n", connections[i]);
+    close(connections[i]);
   }
 
   log_info("Shutting down server\n", NULL);
@@ -136,8 +178,36 @@ int rshsh_server(rshsh_server_ctx ctx) {
   return 0;
 }
 
+void server_fill_prompt(char *prompt, const char *fmt);
+
+typedef enum {
+  SERVER_PHR_QUIT = 1,
+  SERVER_PHR_HALT = 2,
+  SERVER_PHR_HELP = 3,
+} ServerPrehookResult;
+
+int server_prehook(Command cmd) {
+  char *cmd_name = slice_to_stack_str(cmd.name);
+  if (strcmp(cmd_name, "quit") == 0) {
+    log_debug("Client requested exit\n", NULL);
+    return SERVER_PHR_QUIT;
+  }
+  if (strcmp(cmd_name, "halt") == 0) {
+    log_debug("Client requested halt\n", NULL);
+    return SERVER_PHR_HALT;
+  }
+  if (strcmp(cmd_name, "help") == 0) {
+    log_debug("Client requested help\n", NULL);
+    return SERVER_PHR_HELP;
+  }
+  return 0;
+}
+
 void *rshsh_handle_client(void *arg) {
-  int client_fd = *(int *)arg;
+  ClientThreadArgs *cta = (ClientThreadArgs *)arg;
+  int client_fd = cta->client_fd;
+  int timeout = cta->timeout;
+  free(cta);
 
   int in_fd, out_fd;
 
@@ -160,11 +230,48 @@ void *rshsh_handle_client(void *arg) {
   Parser parser;
   Executor executor = executor_new(NULL, server_jobs);
 
-  while (1) {
+  char *welcome = "                   #             #\n"
+                  "             mmm   # mm    mmm   # mm\n"
+                  "            #   \"  #\"  #  #   \"  #\"  #\n"
+                  "             \"\"\"m  #   #   \"\"\"m  #   #\n"
+                  "Welcome to  \"mmm\"  #   #  \"mmm\"  #   # by ic-it\n";
+
+  send(client_fd, welcome, strlen(welcome), 0);
+
+  const char *prompt_fmt = "[%s@%s:%s]-[%s]$ ";
+
+  bool is_eof = false;
+  while (is_eof == false && server_running == true) {
+    char prompt[1024];
+    server_fill_prompt(prompt, prompt_fmt);
+
+    // send prompt
+    send(client_fd, prompt, strlen(prompt), 0);
+
     memset(input, 0, sizeof(input));
-    if (recv(client_fd, input, sizeof(input), 0) == 0) {
-      break;
+
+    // select for timeout
+    if (timeout > 0) {
+      fd_set read_fds;
+      FD_ZERO(&read_fds);
+      FD_SET(client_fd, &read_fds);
+
+      struct timeval tv;
+      tv.tv_sec = timeout;
+      tv.tv_usec = 0;
+
+      int result = select(client_fd + 1, &read_fds, NULL, NULL, &tv);
+      if (result == -1) {
+        log_error("Error: select() failed\n", NULL);
+        break;
+      } else if (result == 0) {
+        send(client_fd, "Connection timed out\n", 21, 0);
+        log_info("Connection timed out\n", NULL);
+        break;
+      }
     }
+
+    ssize_t bytes_read = recv(client_fd, input, sizeof(input), 0);
 
     log_info("Received: %s\n", input);
 
@@ -173,9 +280,27 @@ void *rshsh_handle_client(void *arg) {
     executor.parser = &parser;
 
     while (1) {
-      ExecResult er = exec_next(&executor, STDIN_FILENO, STDOUT_FILENO);
+      ExecResult er = exec_next(&executor, in_fd, out_fd, server_prehook);
       if (er.status == EXEC_PARSE_EOF) {
         break;
+      }
+
+      if (er.status == EXEC_PREHOOK_BREAK) {
+        if (er.prehook_result == SERVER_PHR_QUIT) {
+          log_info("Client requested exit\n", NULL);
+          is_eof = true;
+          break;
+        }
+        if (er.prehook_result == SERVER_PHR_HALT) {
+          log_info("Client requested halt\n", NULL);
+          server_running = false;
+          break;
+        }
+        if (er.prehook_result == SERVER_PHR_HELP) {
+          log_info("Client requested help\n", NULL);
+          send(client_fd, "Help is on the way\n", 18, 0);
+          continue;
+        }
       }
 
       switch (er.status) {
@@ -197,10 +322,30 @@ void *rshsh_handle_client(void *arg) {
         break;
       case EXEC_PIPELINE:
         break;
+      case EXEC_PREHOOK_BREAK:
+        break;
       }
     }
   }
 
-  close(client_fd);
+  log_info("Closing connection\n", NULL);
+  if (close(client_fd) == -1) {
+    log_error("Error: Unable to close client socket\n", NULL);
+  }
+  conn_remove(client_fd);
   return NULL;
+}
+
+void server_fill_prompt(char *prompt, const char *prompt_fmt) {
+  char hostname[1024];
+  gethostname(hostname, sizeof(hostname));
+  char username[1024];
+  getlogin_r(username, sizeof(username));
+  char cwd[1024];
+  getcwd(cwd, sizeof(cwd));
+  char time_str[1024];
+  time_t t = time(NULL);
+  struct tm *tm = localtime(&t);
+  strftime(time_str, sizeof(time_str), "%H:%M:%S", tm);
+  sprintf(prompt, prompt_fmt, username, hostname, cwd, time_str);
 }
